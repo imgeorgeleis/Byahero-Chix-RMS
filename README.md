@@ -115,3 +115,8 @@ The first cashier-facing POS uses active POS-enabled products, variants and modi
 ## POS Workflow Polish (v0.6.1)
 
 Cashiers can hold an in-progress order, browse held orders and resume one later. Completed orders have a printable receipt/detail view and can be marked void with a reason. Voiding preserves the transaction as an audit record rather than deleting it.
+
+
+### v0.6.2 POS Reliability Patch
+
+This patch fixes completed-order void routing and duplicate daily order numbers. The order sequence no longer depends on the number of rows created today, because held orders can be removed after resume. It instead advances from the highest existing `BC-YYYYMMDD-NNNN` number and verifies uniqueness before insert.

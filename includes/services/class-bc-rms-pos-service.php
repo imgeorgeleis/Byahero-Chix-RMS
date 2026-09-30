@@ -137,7 +137,19 @@ class BC_RMS_POS_Service {
 
         $wpdb->query('START TRANSACTION');
         try{
-            $order_number='BC-'.current_time('Ymd').'-'.str_pad((string)(1+(int)$wpdb->get_var("SELECT COUNT(*) FROM $ot WHERE DATE(created_at)=CURDATE()")),4,'0',STR_PAD_LEFT);
+            $date=current_time('Ymd');
+            $prefix='BC-'.$date.'-';
+            $last=$wpdb->get_var($wpdb->prepare(
+                "SELECT order_number FROM $ot WHERE order_number LIKE %s ORDER BY order_number DESC LIMIT 1",
+                $wpdb->esc_like($prefix).'%'
+            ));
+            $seq=1;
+            if($last && preg_match('/^'.preg_quote($prefix,'/').'([0-9]+)$/',$last,$m)) $seq=((int)$m[1])+1;
+            do{
+                $order_number=$prefix.str_pad((string)$seq,4,'0',STR_PAD_LEFT);
+                $exists=(int)$wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM $ot WHERE order_number=%s",$order_number));
+                $seq++;
+            }while($exists);
             $ok=$wpdb->insert($ot,['uuid'=>BC_RMS_DB::uuid(),'order_number'=>$order_number,'status'=>'completed','order_type'=>in_array($payload['order_type']??'dine_in',['dine_in','takeout'],true)?$payload['order_type']:'dine_in','subtotal'=>$subtotal,'discount_total'=>$discount,'tax_total'=>$tax,'total'=>$total,'payment_method'=>$method,'amount_tendered'=>$tender,'change_due'=>$change,'cashier_user_id'=>get_current_user_id(),'notes'=>sanitize_textarea_field($payload['notes']??''),'completed_at'=>$now,'created_at'=>$now,'updated_at'=>$now]);
             if(!$ok) throw new Exception($wpdb->last_error?:'Could not create order.');
             $oid=(int)$wpdb->insert_id;

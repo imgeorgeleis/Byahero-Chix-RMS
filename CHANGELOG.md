@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.6.2
+- Fixed Void Order: v0.6.1 displayed the form and had the service method, but the admin save router did not handle `void_order`.
+- Fixed duplicate `BC-YYYYMMDD-NNNN` order numbers after hold/resume workflows.
+- Daily order numbering now advances from the highest existing completed-order sequence and checks uniqueness before insert.
+- No database schema changes.
+
+
 ## 0.6.1
 - Added Hold Order and Held Orders queue.
 - Added resume workflow for held orders.

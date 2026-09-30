@@ -2,7 +2,7 @@
 Contributors: georgeleis
 Tags: restaurant, pos, inventory, recipe, costing
 Requires at least: 6.4
-Stable tag: 0.6.1
+Stable tag: 0.6.2
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -83,3 +83,9 @@ For older releases, see CHANGELOG.md.
 * Added printable receipt view.
 * Added order voiding with audit reason.
 * Added order status display.
+
+
+= 0.6.2 =
+* Fixed completed-order voiding.
+* Fixed duplicate order numbers after multiple hold/resume transactions.
+* Improved order-number uniqueness handling.
