@@ -29,6 +29,63 @@ class BC_RMS_POS_Service {
         return $products;
     }
 
+    public static function hold_order($payload) {
+        global $wpdb;
+        $items=$payload['items']??[];
+        if(!is_array($items)||!$items) return new WP_Error('empty_cart','Cart is empty.');
+        $ot=BC_RMS_DB::table('orders');$oit=BC_RMS_DB::table('order_items');$omt=BC_RMS_DB::table('order_item_modifiers');
+        $pt=BC_RMS_DB::table('products');$vt=BC_RMS_DB::table('product_variants');$mt=BC_RMS_DB::table('modifiers');
+        $now=current_time('mysql');$subtotal=0;$normalized=[];
+        foreach($items as $raw){
+            $pid=absint($raw['product_id']??0);$qty=max(1,absint($raw['quantity']??1));
+            $p=$wpdb->get_row($wpdb->prepare("SELECT * FROM $pt WHERE id=%d AND active=1 AND pos_enabled=1",$pid));
+            if(!$p) return new WP_Error('invalid_product','A cart product is unavailable.');
+            $price=(float)$p->selling_price;$cost=(float)(BC_RMS_Product_Service::summary($pid)['base_cost']??0);$v=null;
+            $vid=absint($raw['variant_id']??0);
+            if($vid){$v=$wpdb->get_row($wpdb->prepare("SELECT * FROM $vt WHERE id=%d AND product_id=%d AND active=1",$vid,$pid));if(!$v)return new WP_Error('invalid_variant','A selected variant is unavailable.');$price+=(float)$v->price_adjustment;$cost+=(float)$v->cost_adjustment;}
+            $mods=[];foreach(array_values(array_unique(array_map('absint',(array)($raw['modifier_ids']??[])))) as $mid){$m=$wpdb->get_row($wpdb->prepare("SELECT * FROM $mt WHERE id=%d AND active=1",$mid));if($m){$price+=(float)$m->price_adjustment;$cost+=(float)$m->cost_adjustment;$mods[]=$m;}}
+            $subtotal+=$price*$qty;$normalized[]=['p'=>$p,'v'=>$v,'qty'=>$qty,'price'=>$price,'cost'=>$cost,'mods'=>$mods,'notes'=>sanitize_text_field($raw['notes']??'')];
+        }
+        $discount=min(max(0,(float)($payload['discount_total']??0)),$subtotal);$total=max(0,$subtotal-$discount);
+        $wpdb->query('START TRANSACTION');
+        try{
+            $num='HOLD-'.current_time('Ymd-His').'-'.wp_rand(100,999);
+            if(!$wpdb->insert($ot,['uuid'=>BC_RMS_DB::uuid(),'order_number'=>$num,'status'=>'held','order_type'=>in_array($payload['order_type']??'dine_in',['dine_in','takeout'],true)?$payload['order_type']:'dine_in','subtotal'=>$subtotal,'discount_total'=>$discount,'tax_total'=>0,'total'=>$total,'payment_method'=>'cash','amount_tendered'=>0,'change_due'=>0,'cashier_user_id'=>get_current_user_id(),'notes'=>sanitize_textarea_field($payload['notes']??''),'completed_at'=>null,'created_at'=>$now,'updated_at'=>$now])) throw new Exception($wpdb->last_error?:'Could not hold order.');
+            $oid=(int)$wpdb->insert_id;
+            foreach($normalized as $x){
+                if(!$wpdb->insert($oit,['uuid'=>BC_RMS_DB::uuid(),'order_id'=>$oid,'product_id'=>$x['p']->id,'variant_id'=>$x['v']?$x['v']->id:null,'product_name'=>$x['p']->name,'variant_name'=>$x['v']?$x['v']->name:null,'sku'=>$x['v']&&$x['v']->sku?$x['v']->sku:$x['p']->sku,'quantity'=>$x['qty'],'unit_price'=>$x['price'],'unit_cost'=>$x['cost'],'line_total'=>$x['price']*$x['qty'],'notes'=>$x['notes'],'created_at'=>$now])) throw new Exception($wpdb->last_error?:'Could not save held item.');
+                $oi=(int)$wpdb->insert_id;foreach($x['mods'] as $m)$wpdb->insert($omt,['uuid'=>BC_RMS_DB::uuid(),'order_item_id'=>$oi,'modifier_id'=>$m->id,'modifier_name'=>$m->name,'price_adjustment'=>$m->price_adjustment,'cost_adjustment'=>$m->cost_adjustment,'created_at'=>$now]);
+            }
+            $wpdb->query('COMMIT');return ['id'=>$oid,'order_number'=>$num];
+        }catch(Exception $e){$wpdb->query('ROLLBACK');return new WP_Error('hold_failed',$e->getMessage());}
+    }
+
+    public static function held_orders() {
+        global $wpdb;$ot=BC_RMS_DB::table('orders');
+        return $wpdb->get_results("SELECT id,order_number,order_type,total,created_at FROM $ot WHERE status='held' ORDER BY id DESC LIMIT 50",ARRAY_A);
+    }
+
+    public static function held_order_payload($id) {
+        global $wpdb;$ot=BC_RMS_DB::table('orders');$oit=BC_RMS_DB::table('order_items');$omt=BC_RMS_DB::table('order_item_modifiers');
+        $o=$wpdb->get_row($wpdb->prepare("SELECT * FROM $ot WHERE id=%d AND status='held'",$id),ARRAY_A);if(!$o)return null;
+        $items=[];foreach($wpdb->get_results($wpdb->prepare("SELECT * FROM $oit WHERE order_id=%d ORDER BY id",$id),ARRAY_A) as $i){$i['modifier_ids']=array_map('intval',$wpdb->get_col($wpdb->prepare("SELECT modifier_id FROM $omt WHERE order_item_id=%d",$i['id'])));$items[]=['product_id'=>(int)$i['product_id'],'variant_id'=>(int)$i['variant_id'],'modifier_ids'=>$i['modifier_ids'],'quantity'=>(int)$i['quantity'],'notes'=>$i['notes']];}
+        return ['id'=>(int)$o['id'],'order_number'=>$o['order_number'],'order_type'=>$o['order_type'],'discount_total'=>(float)$o['discount_total'],'items'=>$items];
+    }
+
+    public static function delete_held($id) {
+        global $wpdb;$ot=BC_RMS_DB::table('orders');$oit=BC_RMS_DB::table('order_items');$omt=BC_RMS_DB::table('order_item_modifiers');
+        $ids=$wpdb->get_col($wpdb->prepare("SELECT id FROM $oit WHERE order_id=%d",$id));if($ids){$in=implode(',',array_map('intval',$ids));$wpdb->query("DELETE FROM $omt WHERE order_item_id IN ($in)");}
+        $wpdb->delete($oit,['order_id'=>$id],['%d']);return $wpdb->delete($ot,['id'=>$id,'status'=>'held'],['%d','%s']);
+    }
+
+    public static function void_order($id,$reason='') {
+        global $wpdb;$ot=BC_RMS_DB::table('orders');$o=$wpdb->get_row($wpdb->prepare("SELECT * FROM $ot WHERE id=%d",$id));
+        if(!$o||$o->status!=='completed') return new WP_Error('invalid_order','Only completed orders can be voided.');
+        $note=trim((string)$o->notes);$reason=sanitize_text_field($reason);$note.=($note?"\n":'').'VOID: '.($reason?:'No reason supplied').' | '.current_time('mysql').' | User '.get_current_user_id();
+        $wpdb->update($ot,['status'=>'voided','notes'=>$note,'updated_at'=>current_time('mysql')],['id'=>$id]);
+        return true;
+    }
+
     public static function create_order($payload) {
         global $wpdb;
         $items=$payload['items']??[];

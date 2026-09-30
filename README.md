@@ -110,3 +110,8 @@ Fixes the product relationship forms introduced in v0.5.0. Packaging and modifie
 ## POS Order Engine (v0.6.0)
 
 The first cashier-facing POS uses active POS-enabled products, variants and modifier rules. Checkout is validated server-side and completed orders snapshot product names, prices and direct costs so later menu edits do not rewrite history.
+
+
+## POS Workflow Polish (v0.6.1)
+
+Cashiers can hold an in-progress order, browse held orders and resume one later. Completed orders have a printable receipt/detail view and can be marked void with a reason. Voiding preserves the transaction as an audit record rather than deleting it.

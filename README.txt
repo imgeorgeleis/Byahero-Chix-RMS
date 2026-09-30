@@ -2,7 +2,7 @@
 Contributors: georgeleis
 Tags: restaurant, pos, inventory, recipe, costing
 Requires at least: 6.4
-Stable tag: 0.6.0
+Stable tag: 0.6.1
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -76,3 +76,10 @@ For older releases, see CHANGELOG.md.
 * Added variants and modifiers during ordering.
 * Added order storage and order history.
 * Added cash, GCash, card and other payment methods.
+
+
+= 0.6.1 =
+* Added hold/resume order workflow.
+* Added printable receipt view.
+* Added order voiding with audit reason.
+* Added order status display.

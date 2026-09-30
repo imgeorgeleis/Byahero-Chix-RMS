@@ -8,6 +8,9 @@ class BC_RMS_Admin
         add_action('admin_menu', [__CLASS__, 'menu']);
         add_action('admin_init', [__CLASS__, 'save']);
         add_action('wp_ajax_bc_rms_checkout', [__CLASS__, 'ajax_checkout']);
+        add_action('wp_ajax_bc_rms_hold_order', [__CLASS__, 'ajax_hold_order']);
+        add_action('wp_ajax_bc_rms_held_orders', [__CLASS__, 'ajax_held_orders']);
+        add_action('wp_ajax_bc_rms_resume_order', [__CLASS__, 'ajax_resume_order']);
         add_action('admin_init', [__CLASS__, 'delete']);
         add_action('admin_enqueue_scripts', [__CLASS__, 'assets']);
     }
@@ -498,9 +501,9 @@ class BC_RMS_Admin
         $catalog=BC_RMS_POS_Service::catalog();
         wp_enqueue_script('bc-rms-pos',BC_RMS_URL.'assets/js/pos.js',[],BC_RMS_VERSION,true);
         wp_localize_script('bc-rms-pos','BCRMS_POS',['ajaxUrl'=>admin_url('admin-ajax.php'),'nonce'=>wp_create_nonce('bc_rms_pos'),'catalog'=>$catalog,'currency'=>'₱']);
-        echo '<div class="wrap bc-wrap bc-pos"><h1>Byahero Chix POS <small>v0.6.0</small></h1><div class="bc-pos-layout"><section><div class="bc-pos-toolbar"><input id="bc-pos-search" type="search" placeholder="Search menu..."><select id="bc-pos-category"><option value="">All Categories</option>';
+        echo '<div class="wrap bc-wrap bc-pos"><h1>Byahero Chix POS <small>v0.6.1</small></h1><div class="bc-pos-layout"><section><div class="bc-pos-toolbar"><input id="bc-pos-search" type="search" placeholder="Search menu..."><select id="bc-pos-category"><option value="">All Categories</option>';
         $cats=[];foreach($catalog as $x)if(!empty($x['category_name']))$cats[$x['category_name']]=1;foreach(array_keys($cats) as $c)echo '<option>'.esc_html($c).'</option>';
-        echo '</select></div><div id="bc-pos-products" class="bc-pos-products"></div></section><aside class="bc-pos-cart"><h2>Current Order</h2><div class="bc-pos-order-type"><button type="button" data-type="dine_in" class="active">Dine-in</button><button type="button" data-type="takeout">Takeout</button></div><div id="bc-pos-cart-items"></div><div class="bc-pos-totals"><p><span>Subtotal</span><strong id="bc-pos-subtotal">₱0.00</strong></p><p><span>Discount</span><input id="bc-pos-discount" type="number" min="0" step="0.01" value="0"></p><p class="total"><span>Total</span><strong id="bc-pos-total">₱0.00</strong></p></div><label>Payment<select id="bc-pos-payment"><option value="cash">Cash</option><option value="gcash">GCash</option><option value="card">Card</option><option value="other">Other</option></select></label><label>Amount Tendered<input id="bc-pos-tendered" type="number" min="0" step="0.01"></label><button id="bc-pos-checkout" class="button button-primary button-hero">Complete Order</button><div id="bc-pos-message"></div></aside></div><div id="bc-pos-modal" class="bc-pos-modal" hidden><div class="bc-pos-modal-card"><button id="bc-pos-modal-close" type="button">×</button><div id="bc-pos-modal-body"></div></div></div></div>';
+        echo '</select></div><div id="bc-pos-products" class="bc-pos-products"></div></section><aside class="bc-pos-cart"><h2>Current Order</h2><div class="bc-pos-order-type"><button type="button" data-type="dine_in" class="active">Dine-in</button><button type="button" data-type="takeout">Takeout</button></div><div id="bc-pos-cart-items"></div><div class="bc-pos-totals"><p><span>Subtotal</span><strong id="bc-pos-subtotal">₱0.00</strong></p><p><span>Discount</span><input id="bc-pos-discount" type="number" min="0" step="0.01" value="0"></p><p class="total"><span>Total</span><strong id="bc-pos-total">₱0.00</strong></p></div><label>Payment<select id="bc-pos-payment"><option value="cash">Cash</option><option value="gcash">GCash</option><option value="card">Card</option><option value="other">Other</option></select></label><label>Amount Tendered<input id="bc-pos-tendered" type="number" min="0" step="0.01"></label><div class="bc-pos-actions"><button id="bc-pos-hold" class="button button-large" type="button">Hold Order</button><button id="bc-pos-held" class="button button-large" type="button">Held Orders</button></div><button id="bc-pos-checkout" class="button button-primary button-hero">Complete Order</button><div id="bc-pos-message"></div></aside></div><div id="bc-pos-modal" class="bc-pos-modal" hidden><div class="bc-pos-modal-card"><button id="bc-pos-modal-close" type="button">×</button><div id="bc-pos-modal-body"></div></div></div></div>';
     }
 
     public static function ajax_checkout()
@@ -514,6 +517,24 @@ class BC_RMS_Admin
         wp_send_json_success($result);
     }
 
+    public static function ajax_hold_order()
+    {
+        if(!current_user_can('bc_use_pos')) wp_send_json_error(['message'=>'Not allowed.'],403);
+        check_ajax_referer('bc_rms_pos','nonce');$p=json_decode(wp_unslash($_POST['order']??''),true);
+        $r=BC_RMS_POS_Service::hold_order(is_array($p)?$p:[]);if(is_wp_error($r))wp_send_json_error(['message'=>$r->get_error_message()],400);wp_send_json_success($r);
+    }
+    public static function ajax_held_orders()
+    {
+        if(!current_user_can('bc_use_pos')) wp_send_json_error(['message'=>'Not allowed.'],403);
+        check_ajax_referer('bc_rms_pos','nonce');wp_send_json_success(BC_RMS_POS_Service::held_orders());
+    }
+    public static function ajax_resume_order()
+    {
+        if(!current_user_can('bc_use_pos')) wp_send_json_error(['message'=>'Not allowed.'],403);
+        check_ajax_referer('bc_rms_pos','nonce');$id=absint($_POST['id']??0);$p=BC_RMS_POS_Service::held_order_payload($id);
+        if(!$p)wp_send_json_error(['message'=>'Held order not found.'],404);BC_RMS_POS_Service::delete_held($id);wp_send_json_success($p);
+    }
+
     public static function orders()
     {
         if(!current_user_can('bc_view_orders')) wp_die('Not allowed.');
@@ -522,12 +543,12 @@ class BC_RMS_Admin
         echo '<div class="wrap bc-wrap"><h1>Orders</h1>';
         if($view){
             $o=$wpdb->get_row($wpdb->prepare("SELECT * FROM $ot WHERE id=%d",$view));if(!$o){echo '<p>Order not found.</p></div>';return;}
-            echo '<div class="bc-card"><h2>'.esc_html($o->order_number).'</h2><p><strong>'.esc_html(ucwords(str_replace('_',' ',$o->order_type))).'</strong> · '.esc_html($o->created_at).' · '.esc_html(strtoupper($o->payment_method)).'</p><table class="widefat striped"><tr><th>Item</th><th>Qty</th><th>Unit Price</th><th>Total</th></tr>';
-            foreach($wpdb->get_results($wpdb->prepare("SELECT * FROM $oit WHERE order_id=%d ORDER BY id",$view)) as $i)echo '<tr><td>'.esc_html($i->product_name.($i->variant_name?' — '.$i->variant_name:'')).'</td><td>'.esc_html($i->quantity).'</td><td>₱'.number_format($i->unit_price,2).'</td><td>₱'.number_format($i->line_total,2).'</td></tr>';
-            echo '</table><p><strong>Total: ₱'.number_format($o->total,2).'</strong> · Tendered: ₱'.number_format($o->amount_tendered,2).' · Change: ₱'.number_format($o->change_due,2).'</p></div><p><a href="?page=bc-rms-orders">← Back to Orders</a></p>';
+            echo '<div class="bc-card bc-receipt"><h2>'.esc_html($o->order_number).'</h2><p><strong>'.esc_html(strtoupper($o->status)).'</strong> · '.esc_html(ucwords(str_replace('_',' ',$o->order_type))).' · '.esc_html($o->created_at).' · '.esc_html(strtoupper($o->payment_method)).'</p><button class="button bc-print-receipt" onclick="window.print()">Print Receipt</button><table class="widefat striped"><tr><th>Item</th><th>Qty</th><th>Unit Price</th><th>Total</th></tr>';
+            $omt=BC_RMS_DB::table('order_item_modifiers');foreach($wpdb->get_results($wpdb->prepare("SELECT * FROM $oit WHERE order_id=%d ORDER BY id",$view)) as $i){$mods=$wpdb->get_col($wpdb->prepare("SELECT modifier_name FROM $omt WHERE order_item_id=%d ORDER BY id",$i->id));echo '<tr><td>'.esc_html($i->product_name.($i->variant_name?' — '.$i->variant_name:'')).($mods?'<small style="display:block">'.esc_html(implode(', ',$mods)).'</small>':'').($i->notes?'<small style="display:block">Note: '.esc_html($i->notes).'</small>':'').'</td><td>'.esc_html($i->quantity).'</td><td>₱'.number_format($i->unit_price,2).'</td><td>₱'.number_format($i->line_total,2).'</td></tr>';}
+            echo '</table><div class="bc-receipt-totals"><p>Subtotal: ₱'.number_format($o->subtotal,2).'</p><p>Discount: ₱'.number_format($o->discount_total,2).'</p><p><strong>Total: ₱'.number_format($o->total,2).'</strong></p><p>Tendered: ₱'.number_format($o->amount_tendered,2).' · Change: ₱'.number_format($o->change_due,2).'</p></div>';if($o->status==='completed'){echo '<hr><form method="post" class="bc-no-print">';wp_nonce_field('bc_rms_save');echo '<input type="hidden" name="bc_rms_action" value="void_order"><input type="hidden" name="id" value="'.absint($o->id).'"><label><strong>Void reason</strong><br><input type="text" name="reason" required style="width:320px"></label> ';submit_button('Void Order','secondary','submit',false);echo '</form>';}echo '</div><p class="bc-no-print"><a href="?page=bc-rms-orders">← Back to Orders</a></p>';
         }else{
-            echo '<div class="bc-card bc-wide"><table class="widefat striped"><tr><th>Order</th><th>Date</th><th>Type</th><th>Payment</th><th>Total</th><th>Cashier</th><th></th></tr>';
-            foreach($wpdb->get_results("SELECT * FROM $ot ORDER BY id DESC LIMIT 200") as $o){$u=get_userdata($o->cashier_user_id);echo '<tr><td><strong>'.esc_html($o->order_number).'</strong></td><td>'.esc_html($o->created_at).'</td><td>'.esc_html(ucwords(str_replace('_',' ',$o->order_type))).'</td><td>'.esc_html(strtoupper($o->payment_method)).'</td><td>₱'.number_format($o->total,2).'</td><td>'.esc_html($u?$u->display_name:'—').'</td><td><a href="?page=bc-rms-orders&view='.$o->id.'">View</a></td></tr>';}echo '</table></div>';
+            echo '<div class="bc-card bc-wide"><table class="widefat striped"><tr><th>Order</th><th>Date</th><th>Status</th><th>Type</th><th>Payment</th><th>Total</th><th>Cashier</th><th></th></tr>';
+            foreach($wpdb->get_results("SELECT * FROM $ot ORDER BY id DESC LIMIT 200") as $o){$u=get_userdata($o->cashier_user_id);echo '<tr><td><strong>'.esc_html($o->order_number).'</strong></td><td>'.esc_html($o->created_at).'</td><td>'.esc_html(strtoupper($o->status)).'</td><td>'.esc_html(ucwords(str_replace('_',' ',$o->order_type))).'</td><td>'.esc_html(strtoupper($o->payment_method)).'</td><td>₱'.number_format($o->total,2).'</td><td>'.esc_html($u?$u->display_name:'—').'</td><td><a href="?page=bc-rms-orders&view='.$o->id.'">View</a></td></tr>';}echo '</table></div>';
         }echo '</div>';
     }
 

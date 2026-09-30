@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.6.1
+- Added Hold Order and Held Orders queue.
+- Added resume workflow for held orders.
+- Added printable order receipt/detail layout.
+- Added modifier and item-note visibility in order details.
+- Added completed-order voiding with required reason and audit note.
+- Added order status to the Orders list.
+- No database schema changes.
+
+
 ## 0.6.0
 - Added first functional touchscreen POS order screen.
 - Added menu search, category filtering, cart, variants, and modifiers.
