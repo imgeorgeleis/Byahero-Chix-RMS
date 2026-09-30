@@ -23,6 +23,8 @@ class BC_RMS_Admin
         add_submenu_page('bc-rms', 'Suppliers', 'Suppliers', 'bc_manage_suppliers', 'bc-rms-suppliers', [__CLASS__, 'suppliers']);
         add_submenu_page('bc-rms', 'Supplier Pricing', 'Supplier Pricing', 'bc_manage_suppliers', 'bc-rms-pricing', [__CLASS__, 'pricing']);
         add_submenu_page('bc-rms', 'Recipes', 'Recipes', 'bc_manage_recipes', 'bc-rms-recipes', [__CLASS__, 'recipes']);
+        add_submenu_page('bc-rms', 'Menu Categories', 'Menu Categories', 'bc_manage_products', 'bc-rms-product-categories', [__CLASS__, 'product_categories']);
+        add_submenu_page('bc-rms', 'Products / Menu', 'Products / Menu', 'bc_manage_products', 'bc-rms-products', [__CLASS__, 'products']);
         add_submenu_page('bc-rms', 'Units', 'Units', 'bc_manage_units', 'bc-rms-units', [__CLASS__, 'units']);
         add_submenu_page('bc-rms', 'Settings', 'Settings', 'bc_manage_settings', 'bc-rms-settings', [__CLASS__, 'settings']);
     }
@@ -53,6 +55,8 @@ class BC_RMS_Admin
             'unit'=>['units','bc_manage_units','bc-rms-units'],
             'recipe'=>['recipes','bc_manage_recipes','bc-rms-recipes'],
             'recipe_item'=>['recipe_items','bc_manage_recipes','bc-rms-recipes'],
+            'product_category'=>['product_categories','bc_manage_products','bc-rms-product-categories'],
+            'product'=>['products','bc_manage_products','bc-rms-products'],
         ];
         if (!isset($map[$type]) || !current_user_can($map[$type][1])) wp_die('Invalid request.');
         check_admin_referer('bc_rms_delete_'.$type.'_'.$id);
@@ -66,9 +70,14 @@ class BC_RMS_Admin
         } elseif ($type === 'supplier') {
             $count=(int)$wpdb->get_var($wpdb->prepare('SELECT COUNT(*) FROM '.BC_RMS_DB::table('supplier_items').' WHERE supplier_id=%d',$id));
             if($count) $blocked='This supplier has Supplier Pricing records. Delete those pricing records first, or set the supplier to Inactive.';
+        } elseif ($type === 'product_category') {
+            $count=(int)$wpdb->get_var($wpdb->prepare('SELECT COUNT(*) FROM '.BC_RMS_DB::table('products').' WHERE category_id=%d',$id));
+            if($count) $blocked='This menu category is assigned to one or more products. Reassign those products first.';
         } elseif ($type === 'recipe') {
+            $products=(int)$wpdb->get_var($wpdb->prepare('SELECT COUNT(*) FROM '.BC_RMS_DB::table('products').' WHERE recipe_id=%d',$id));
+            if($products) $blocked='This recipe is linked to one or more menu products. Unlink or reassign those products first.';
             $count=(int)$wpdb->get_var($wpdb->prepare('SELECT COUNT(*) FROM '.BC_RMS_DB::table('recipe_items').' WHERE recipe_id=%d',$id));
-            if($count) $wpdb->delete(BC_RMS_DB::table('recipe_items'),['recipe_id'=>$id],['%d']);
+            if(!$blocked && $count) $wpdb->delete(BC_RMS_DB::table('recipe_items'),['recipe_id'=>$id],['%d']);
         } elseif ($type === 'unit') {
             $a=(int)$wpdb->get_var($wpdb->prepare('SELECT COUNT(*) FROM '.BC_RMS_DB::table('ingredients').' WHERE base_unit_id=%d',$id));
             $b=(int)$wpdb->get_var($wpdb->prepare('SELECT COUNT(*) FROM '.BC_RMS_DB::table('supplier_items').' WHERE purchase_unit_id=%d',$id));
@@ -167,6 +176,46 @@ class BC_RMS_Admin
             if($id)$wpdb->update($t,$d,['id'=>$id]);else{$d+=['uuid'=>BC_RMS_DB::uuid(),'created_at'=>$n];$wpdb->insert($t,$d);}
             self::go('bc-rms-recipes',['saved'=>1,'edit'=>$recipe_id]);
         }
+        if ($a === 'product_category') {
+            if (!current_user_can('bc_manage_products')) wp_die('Not allowed.');
+            $t=BC_RMS_DB::table('product_categories');$id=absint($_POST['id']??0);
+            $d=[
+                'name'=>sanitize_text_field($_POST['name']??''),
+                'description'=>sanitize_textarea_field($_POST['description']??''),
+                'sort_order'=>absint($_POST['sort_order']??0),
+                'active'=>isset($_POST['active'])?1:0,
+                'updated_at'=>$n
+            ];
+            if(!$d['name']) wp_die('Menu category name is required.');
+            if($id) $wpdb->update($t,$d,['id'=>$id]);
+            else {$d+=['uuid'=>BC_RMS_DB::uuid(),'created_at'=>$n];$wpdb->insert($t,$d);}
+            self::go('bc-rms-product-categories');
+        }
+        if ($a === 'product') {
+            if (!current_user_can('bc_manage_products')) wp_die('Not allowed.');
+            $t=BC_RMS_DB::table('products');$id=absint($_POST['id']??0);
+            $sku=sanitize_text_field($_POST['sku']??'');
+            $d=[
+                'sku'=>$sku!==''?$sku:null,
+                'name'=>sanitize_text_field($_POST['name']??''),
+                'category_id'=>absint($_POST['category_id']??0)?:null,
+                'recipe_id'=>absint($_POST['recipe_id']??0)?:null,
+                'description'=>sanitize_textarea_field($_POST['description']??''),
+                'selling_price'=>max(0,(float)($_POST['selling_price']??0)),
+                'pos_enabled'=>isset($_POST['pos_enabled'])?1:0,
+                'active'=>isset($_POST['active'])?1:0,
+                'sort_order'=>absint($_POST['sort_order']??0),
+                'updated_at'=>$n
+            ];
+            if(!$d['name']) wp_die('Product name is required.');
+            if($sku!==''){
+                $duplicate=(int)$wpdb->get_var($wpdb->prepare("SELECT id FROM $t WHERE sku=%s AND id<>%d",$sku,$id));
+                if($duplicate) wp_die('SKU already exists. Please use a unique SKU.');
+            }
+            if($id) $wpdb->update($t,$d,['id'=>$id]);
+            else {$d+=['uuid'=>BC_RMS_DB::uuid(),'created_at'=>$n];$wpdb->insert($t,$d);$id=(int)$wpdb->insert_id;}
+            self::go('bc-rms-products',['saved'=>1,'edit'=>$id]);
+        }
         if ($a === 'settings') {
             $t = BC_RMS_DB::table('settings');
             foreach (['business_name', 'currency', 'currency_symbol', 'timezone', 'target_food_cost', 'target_margin'] as $k) {
@@ -195,6 +244,12 @@ class BC_RMS_Admin
             echo '<option value="' . $r->id . '" ' . selected($v, $r->id, false) . '>' . esc_html($r->name . (isset($r->symbol) ? ' (' . $r->symbol . ')' : '')) . '</option>';
         echo '</select></label></p>';
     }
+    private static function sel_optional($l,$n,$rows,$v=0)
+    {
+        echo '<p><label><b>'.esc_html($l).'</b><br><select name="'.esc_attr($n).'"><option value="">— None —</option>';
+        foreach($rows as $r) echo '<option value="'.absint($r->id).'" '.selected($v,$r->id,false).'>'.esc_html($r->name).'</option>';
+        echo '</select></label></p>';
+    }
     private static function form($action, $id = 0)
     {
         echo '<form method="post" class="bc-card">';
@@ -215,12 +270,12 @@ class BC_RMS_Admin
     public static function dashboard()
     {
         global $wpdb;
-        echo '<div class="wrap bc-wrap"><h1>Byahero Chix RMS <small>v0.3.0</small></h1><div class="bc-stats">';
-        foreach (['Ingredients' => 'ingredients', 'Suppliers' => 'suppliers', 'Categories' => 'ingredient_categories', 'Units' => 'units'] as $l => $t) {
+        echo '<div class="wrap bc-wrap"><h1>Byahero Chix RMS <small>v0.4.0</small></h1><div class="bc-stats">';
+        foreach (['Ingredients' => 'ingredients', 'Recipes' => 'recipes', 'Products' => 'products', 'Suppliers' => 'suppliers'] as $l => $t) {
             $c = $wpdb->get_var('SELECT COUNT(*) FROM ' . BC_RMS_DB::table($t) . ' WHERE active=1');
             echo '<div class="bc-stat"><strong>' . $c . '</strong><span>' . $l . '</span></div>';
         }
-        echo '</div><div class="bc-card"><h2>Recipe & Costing Build</h2><p>Master Data plus Recipe Builder and live ingredient costing based on preferred supplier pricing.</p></div></div>';
+        echo '</div><div class="bc-card"><h2>Menu & Product Build</h2><p>Recipes can now be mapped to sellable menu products with selling prices, food-cost percentage, gross margin, and target-price guidance.</p></div></div>';
     }
     public static function ingredients()
     {
@@ -356,6 +411,89 @@ class BC_RMS_Admin
         echo '<div class="bc-card"><h2>Recipe Master</h2><table class="widefat striped"><tr><th>Recipe</th><th>Servings</th><th>Total Cost</th><th>Cost/Serving</th><th></th></tr>';
         foreach($wpdb->get_results("SELECT * FROM $rt ORDER BY active DESC,name") as $x){$c=BC_RMS_Costing_Service::recipe($x->id);echo '<tr><td>'.esc_html($x->name).'</td><td>'.esc_html($x->servings).'</td><td>₱'.number_format($c['total_cost'],2).'</td><td>₱'.number_format($c['cost_per_serving'],2).'</td><td><a href="?page=bc-rms-recipes&edit='.$x->id.'">Edit</a> | <a class="bc-delete" onclick="return confirm(\'Delete this recipe and all its recipe ingredients?\')" href="'.esc_url(self::delete_url('bc-rms-recipes','recipe',$x->id)).'">Delete</a></td></tr>';}echo '</table></div></div></div></div>';
     }
+    /**
+     * Render menu/product categories.
+     */
+    public static function product_categories()
+    {
+        self::saved();
+        global $wpdb;
+        $t=BC_RMS_DB::table('product_categories');
+        $id=absint($_GET['edit']??0);
+        $r=$id?$wpdb->get_row($wpdb->prepare("SELECT * FROM $t WHERE id=%d",$id)):null;
+
+        echo '<div class="wrap bc-wrap"><h1>Menu Categories</h1><div class="bc-grid"><div>';
+        self::form('product_category',$id);
+        self::f('Name','name',$r->name??'');
+        self::f('Sort Order','sort_order',$r->sort_order??0,'number','1');
+        echo '<p><label><b>Description</b><br><textarea class="large-text" rows="4" name="description">'.esc_textarea($r->description??'').'</textarea></label></p>';
+        self::c('Active','active',!$r||$r->active);
+        self::end();
+
+        echo '</div><div class="bc-card"><table class="widefat striped"><tr><th>Name</th><th>Sort</th><th>Status</th><th></th></tr>';
+        foreach($wpdb->get_results("SELECT * FROM $t ORDER BY sort_order,name") as $x){
+            echo '<tr><td>'.esc_html($x->name).'</td><td>'.absint($x->sort_order).'</td><td>'.($x->active?'Active':'Inactive').'</td><td><a href="?page=bc-rms-product-categories&edit='.$x->id.'">Edit</a> | <a class="bc-delete" onclick="return confirm(\'Permanently delete this menu category?\')" href="'.esc_url(self::delete_url('bc-rms-product-categories','product_category',$x->id)).'">Delete</a></td></tr>';
+        }
+        echo '</table></div></div></div>';
+    }
+
+    /**
+     * Render sellable menu products and recipe-to-product costing.
+     */
+    public static function products()
+    {
+        self::saved();
+        global $wpdb;
+        $t=BC_RMS_DB::table('products');
+        $ct=BC_RMS_DB::table('product_categories');
+        $rt=BC_RMS_DB::table('recipes');
+        $id=absint($_GET['edit']??0);
+        $r=$id?$wpdb->get_row($wpdb->prepare("SELECT * FROM $t WHERE id=%d",$id)):null;
+        $cats=$wpdb->get_results("SELECT id,name FROM $ct WHERE active=1 ORDER BY sort_order,name");
+        $recipes=$wpdb->get_results("SELECT id,name FROM $rt WHERE active=1 ORDER BY name");
+
+        echo '<div class="wrap bc-wrap"><h1>Products / Menu</h1><div class="bc-grid"><div>';
+        self::form('product',$id);
+        self::f('Product Name','name',$r->name??'');
+        self::f('SKU','sku',$r->sku??'');
+        self::sel_optional('Menu Category','category_id',$cats,$r->category_id??0);
+        self::sel_optional('Recipe / Cost Basis','recipe_id',$recipes,$r->recipe_id??0);
+        self::f('Selling Price','selling_price',$r->selling_price??0,'number','0.01');
+        self::f('Sort Order','sort_order',$r->sort_order??0,'number','1');
+        echo '<p><label><b>Description</b><br><textarea class="large-text" rows="4" name="description">'.esc_textarea($r->description??'').'</textarea></label></p>';
+        self::c('Available in POS','pos_enabled',!$r||$r->pos_enabled);
+        self::c('Active','active',!$r||$r->active);
+        self::end();
+
+        if($id){
+            $summary=BC_RMS_Product_Service::summary($id);
+            echo '<div class="bc-card"><h2>Product Costing</h2><div class="bc-cost-grid">';
+            echo '<div><span>Recipe Cost / Serving</span><strong>'.(null===$summary['recipe_cost']?'—':'₱'.number_format($summary['recipe_cost'],2)).'</strong></div>';
+            echo '<div><span>Selling Price</span><strong>₱'.number_format($summary['selling_price'],2).'</strong></div>';
+            echo '<div><span>Food Cost %</span><strong>'.(null===$summary['food_cost_percent']?'—':number_format($summary['food_cost_percent'],1).'%').'</strong></div>';
+            echo '<div><span>Gross Margin</span><strong>'.(null===$summary['gross_margin_percent']?'—':number_format($summary['gross_margin_percent'],1).'%').'</strong></div>';
+            echo '<div><span>Gross Profit</span><strong>'.(null===$summary['gross_profit']?'—':'₱'.number_format($summary['gross_profit'],2)).'</strong></div>';
+            echo '<div><span>Suggested Price @ '.esc_html(BC_RMS_DB::setting('target_food_cost','35')).'% Food Cost</span><strong>'.(null===$summary['suggested_price']?'—':'₱'.number_format($summary['suggested_price'],2)).'</strong></div>';
+            echo '</div>';
+            if($summary['missing_costs']) echo '<p class="bc-warning">The linked recipe has '.absint($summary['missing_costs']).' ingredient(s) with missing supplier cost. Product costing is incomplete.</p>';
+            if(!$r->recipe_id) echo '<p class="bc-warning">No recipe is linked. Cost and margin calculations are unavailable until a recipe is selected.</p>';
+            echo '</div>';
+        }
+
+        echo '</div><div class="bc-card bc-wide"><table class="widefat striped"><tr><th>Product</th><th>Category</th><th>Recipe</th><th>Price</th><th>Cost</th><th>Food Cost</th><th>Margin</th><th>POS</th><th></th></tr>';
+        $rows=$wpdb->get_results("SELECT p.*,c.name category,r.name recipe FROM $t p LEFT JOIN $ct c ON c.id=p.category_id LEFT JOIN $rt r ON r.id=p.recipe_id ORDER BY c.sort_order,p.sort_order,p.name");
+        foreach($rows as $x){
+            $m=BC_RMS_Product_Service::summary($x->id);
+            echo '<tr><td><strong>'.esc_html($x->name).'</strong>'.($x->sku?'<br><small>'.esc_html($x->sku).'</small>':'').'</td>';
+            echo '<td>'.esc_html($x->category?:'—').'</td><td>'.esc_html($x->recipe?:'—').'</td><td>₱'.number_format($x->selling_price,2).'</td>';
+            echo '<td>'.(null===$m['recipe_cost']?'—':'₱'.number_format($m['recipe_cost'],2)).'</td>';
+            echo '<td>'.(null===$m['food_cost_percent']?'—':number_format($m['food_cost_percent'],1).'%').'</td>';
+            echo '<td>'.(null===$m['gross_margin_percent']?'—':number_format($m['gross_margin_percent'],1).'%').'</td>';
+            echo '<td>'.($x->pos_enabled?'Yes':'No').'</td><td><a href="?page=bc-rms-products&edit='.$x->id.'">Edit</a> | <a class="bc-delete" onclick="return confirm(\'Permanently delete this product?\')" href="'.esc_url(self::delete_url('bc-rms-products','product',$x->id)).'">Delete</a></td></tr>';
+        }
+        echo '</table></div></div></div>';
+    }
+
     public static function settings()
     {
         self::saved();

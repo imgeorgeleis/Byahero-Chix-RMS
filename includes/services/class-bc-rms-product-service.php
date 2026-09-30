@@ -1,0 +1,74 @@
+<?php
+/**
+ * Product/menu costing helpers.
+ *
+ * Keeps menu pricing calculations outside the admin UI so the same logic can
+ * later be reused by REST endpoints and the POS application.
+ *
+ * @package ByaheroChixRMS
+ */
+
+if ( ! defined( 'ABSPATH' ) ) {
+    exit;
+}
+
+class BC_RMS_Product_Service {
+
+    /**
+     * Return the costing summary for one product.
+     *
+     * @param int $product_id Product ID.
+     * @return array|null
+     */
+    public static function summary( $product_id ) {
+        global $wpdb;
+
+        $products = BC_RMS_DB::table( 'products' );
+        $product  = $wpdb->get_row(
+            $wpdb->prepare( "SELECT * FROM $products WHERE id=%d", $product_id )
+        );
+
+        if ( ! $product ) {
+            return null;
+        }
+
+        $recipe_cost = null;
+        $missing     = 0;
+
+        if ( $product->recipe_id ) {
+            $recipe = BC_RMS_Costing_Service::recipe( (int) $product->recipe_id );
+            if ( $recipe ) {
+                $recipe_cost = (float) $recipe['cost_per_serving'];
+                $missing     = (int) $recipe['missing_costs'];
+            }
+        }
+
+        $price = (float) $product->selling_price;
+        $food_cost_percent = ( null !== $recipe_cost && $price > 0 )
+            ? ( $recipe_cost / $price ) * 100
+            : null;
+
+        $gross_profit = ( null !== $recipe_cost )
+            ? $price - $recipe_cost
+            : null;
+
+        $gross_margin_percent = ( null !== $gross_profit && $price > 0 )
+            ? ( $gross_profit / $price ) * 100
+            : null;
+
+        $target_food_cost = max( 0.01, (float) BC_RMS_DB::setting( 'target_food_cost', '35' ) );
+        $suggested_price  = ( null !== $recipe_cost )
+            ? $recipe_cost / ( $target_food_cost / 100 )
+            : null;
+
+        return array(
+            'recipe_cost'          => $recipe_cost,
+            'selling_price'        => $price,
+            'food_cost_percent'    => $food_cost_percent,
+            'gross_profit'         => $gross_profit,
+            'gross_margin_percent' => $gross_margin_percent,
+            'suggested_price'      => $suggested_price,
+            'missing_costs'        => $missing,
+        );
+    }
+}

@@ -2,7 +2,7 @@
 Contributors: georgeleis
 Tags: restaurant, pos, inventory, recipe, costing
 Requires at least: 6.4
-Stable tag: 0.3.0
+Stable tag: 0.4.0
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -48,3 +48,11 @@ No. Version 0.3.0 upgrades the schema and preserves the existing master-data tab
 * Added database version upgrade handling.
 
 For older releases, see CHANGELOG.md.
+
+
+= 0.4.0 =
+* Added Menu Categories and Products / Menu.
+* Added Recipe-to-Product mapping.
+* Added selling price, SKU, POS availability, and menu sorting.
+* Added food-cost percentage, gross profit, gross margin, and target-price guidance.
+* Added safe dependency checks for product-related records.

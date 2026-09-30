@@ -80,3 +80,18 @@ All state-changing admin requests must use WordPress nonces and capability check
 Copyright (c) 2026 George L.
 
 Licensed under the GNU General Public License v2.0 or later (`GPL-2.0-or-later`). See `LICENSE`.
+
+
+## Menu Products (v0.4.0)
+
+Version 0.4.0 introduces the first sellable-menu layer. A product can be assigned to a
+menu category, linked to a recipe, given a selling price and SKU, and marked as
+available for the future POS.
+
+When a recipe is linked, the RMS calculates recipe cost per serving, food-cost
+percentage, gross profit, gross margin, and a suggested selling price using the
+configured target food-cost percentage.
+
+This release intentionally keeps one recipe as the primary cost basis for one product.
+Modifiers, add-ons, sizes, bundles, packaging costs, taxes, and POS transactions are
+planned as later modules.
