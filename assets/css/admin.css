@@ -1,0 +1,61 @@
+.bc-wrap {
+    max-width: 1400px
+}
+
+.bc-wrap h1 small {
+    font-size: 13px;
+    color: #666
+}
+
+.bc-grid {
+    display: grid;
+    grid-template-columns: minmax(300px, 380px) 1fr;
+    gap: 20px;
+    align-items: start
+}
+
+.bc-card {
+    background: #fff;
+    border: 1px solid #dcdcde;
+    border-radius: 7px;
+    padding: 18px;
+    margin-top: 16px;
+    overflow: auto
+}
+
+.bc-stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    margin: 20px 0
+}
+
+.bc-stat {
+    background: #fff;
+    border: 1px solid #dcdcde;
+    border-radius: 7px;
+    padding: 20px
+}
+
+.bc-stat strong {
+    display: block;
+    font-size: 28px
+}
+
+.bc-stat span {
+    color: #646970
+}
+
+.bc-card select {
+    min-width: 250px
+}
+
+@media(max-width:900px) {
+    .bc-grid {
+        grid-template-columns: 1fr
+    }
+
+    .bc-stats {
+        grid-template-columns: repeat(2, 1fr)
+    }
+}
