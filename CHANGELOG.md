@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.1
+- Fixed Product / Menu packaging assignment form routing.
+- Fixed Product / Menu modifier-group assignment form routing.
+- Added visible assigned modifier groups.
+- Added Remove controls for product packaging and modifier-group assignments.
+- No database schema changes.
+
+
 ## 0.5.0
 - Added Packaging and per-product packaging costing.
 - Added Product Variants with price/cost adjustments.

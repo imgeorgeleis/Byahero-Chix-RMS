@@ -100,3 +100,8 @@ planned as later modules.
 ## Product Configuration & Costing (v0.5.0)
 
 Products now support packaging costs, variants, and modifier/add-on groups. Packaging contributes to base direct cost. Variants and modifiers carry independent selling-price and cost adjustments for use by the future POS order engine.
+
+
+### v0.5.1 Patch
+
+Fixes the product relationship forms introduced in v0.5.0. Packaging and modifier groups can now be assigned from the Product / Menu edit screen, and existing assignments can be removed.
