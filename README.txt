@@ -1,4 +1,4 @@
-BYAHERO CHIX RMS v0.1.0
+BYAHERO CHIX RMS v0.2.0
 
 FIRST WORKING BUILD
 
@@ -26,3 +26,11 @@ Not included yet:
 
 Install on a DEVELOPMENT/STAGING WordPress site first:
 Plugins > Add Plugin > Upload Plugin > choose ZIP > Activate.
+
+
+v0.2.0 CHANGES
+- Plugin Author: George L.
+- Author URI: https://www.imgeorgeleis.com
+- Added safe permanent Delete actions for Ingredients, Categories, Suppliers, Supplier Pricing, and Units.
+- Delete is blocked when dependent records exist.
+- Existing v0.1.0 data is preserved during upgrade.

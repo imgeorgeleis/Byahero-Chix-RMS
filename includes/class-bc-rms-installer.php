@@ -8,7 +8,7 @@ class BC_RMS_Installer
         self::tables();
         self::seed();
         self::roles();
-        update_option('bc_rms_db_version', '0.1.0');
+        update_option('bc_rms_db_version', '0.2.0');
     }
     private static function tables()
     {

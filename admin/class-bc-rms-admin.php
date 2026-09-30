@@ -7,6 +7,7 @@ class BC_RMS_Admin
     {
         add_action('admin_menu', [__CLASS__, 'menu']);
         add_action('admin_init', [__CLASS__, 'save']);
+        add_action('admin_init', [__CLASS__, 'delete']);
         add_action('admin_enqueue_scripts', [__CLASS__, 'assets']);
     }
     public static function assets($h)
@@ -28,10 +29,49 @@ class BC_RMS_Admin
     {
         wp_nonce_field('bc_rms_save');
     }
-    private static function go($p)
+    private static function go($p, $args = ['saved' => 1])
     {
-        wp_safe_redirect(add_query_arg(['page' => $p, 'saved' => 1], admin_url('admin.php')));
+        wp_safe_redirect(add_query_arg(array_merge(['page' => $p], $args), admin_url('admin.php')));
         exit;
+    }
+    private static function delete_url($page, $type, $id)
+    {
+        return wp_nonce_url(add_query_arg(['page'=>$page,'bc_rms_delete'=>$type,'id'=>absint($id)], admin_url('admin.php')), 'bc_rms_delete_'.$type.'_'.$id);
+    }
+    public static function delete()
+    {
+        if (empty($_GET['bc_rms_delete']) || empty($_GET['id'])) return;
+        global $wpdb;
+        $type = sanitize_key($_GET['bc_rms_delete']);
+        $id = absint($_GET['id']);
+        $map = [
+            'ingredient'=>['ingredients','bc_manage_ingredients','bc-rms-ingredients'],
+            'category'=>['ingredient_categories','bc_manage_ingredients','bc-rms-categories'],
+            'supplier'=>['suppliers','bc_manage_suppliers','bc-rms-suppliers'],
+            'pricing'=>['supplier_items','bc_manage_suppliers','bc-rms-pricing'],
+            'unit'=>['units','bc_manage_units','bc-rms-units'],
+        ];
+        if (!isset($map[$type]) || !current_user_can($map[$type][1])) wp_die('Invalid request.');
+        check_admin_referer('bc_rms_delete_'.$type.'_'.$id);
+        $blocked = '';
+        if ($type === 'ingredient') {
+            $count=(int)$wpdb->get_var($wpdb->prepare('SELECT COUNT(*) FROM '.BC_RMS_DB::table('supplier_items').' WHERE ingredient_id=%d',$id));
+            if($count) $blocked='This ingredient is used by Supplier Pricing. Delete those pricing records first, or set the ingredient to Inactive.';
+        } elseif ($type === 'category') {
+            $count=(int)$wpdb->get_var($wpdb->prepare('SELECT COUNT(*) FROM '.BC_RMS_DB::table('ingredients').' WHERE category_id=%d',$id));
+            if($count) $blocked='This category is assigned to one or more ingredients. Reassign them first, or set the category to Inactive.';
+        } elseif ($type === 'supplier') {
+            $count=(int)$wpdb->get_var($wpdb->prepare('SELECT COUNT(*) FROM '.BC_RMS_DB::table('supplier_items').' WHERE supplier_id=%d',$id));
+            if($count) $blocked='This supplier has Supplier Pricing records. Delete those pricing records first, or set the supplier to Inactive.';
+        } elseif ($type === 'unit') {
+            $a=(int)$wpdb->get_var($wpdb->prepare('SELECT COUNT(*) FROM '.BC_RMS_DB::table('ingredients').' WHERE base_unit_id=%d',$id));
+            $b=(int)$wpdb->get_var($wpdb->prepare('SELECT COUNT(*) FROM '.BC_RMS_DB::table('supplier_items').' WHERE purchase_unit_id=%d',$id));
+            $c=(int)$wpdb->get_var($wpdb->prepare('SELECT COUNT(*) FROM '.BC_RMS_DB::table('unit_conversions').' WHERE from_unit_id=%d OR to_unit_id=%d',$id,$id));
+            if($a+$b+$c) $blocked='This unit is already referenced by other records. Set it to Inactive instead.';
+        }
+        if ($blocked) self::go($map[$type][2], ['bc_error'=>rawurlencode($blocked)]);
+        $wpdb->delete(BC_RMS_DB::table($map[$type][0]), ['id'=>$id], ['%d']);
+        self::go($map[$type][2], ['deleted'=>1]);
     }
     public static function save()
     {
@@ -146,13 +186,14 @@ class BC_RMS_Admin
     }
     private static function saved()
     {
-        if (isset($_GET['saved']))
-            echo '<div class="notice notice-success"><p>Saved successfully.</p></div>';
+        if (isset($_GET['saved'])) echo '<div class="notice notice-success"><p>Saved successfully.</p></div>';
+        if (isset($_GET['deleted'])) echo '<div class="notice notice-success"><p>Record permanently deleted.</p></div>';
+        if (isset($_GET['bc_error'])) echo '<div class="notice notice-error"><p>'.esc_html(wp_unslash($_GET['bc_error'])).'</p></div>';
     }
     public static function dashboard()
     {
         global $wpdb;
-        echo '<div class="wrap bc-wrap"><h1>Byahero Chix RMS <small>v0.1.0</small></h1><div class="bc-stats">';
+        echo '<div class="wrap bc-wrap"><h1>Byahero Chix RMS <small>v0.2.0</small></h1><div class="bc-stats">';
         foreach (['Ingredients' => 'ingredients', 'Suppliers' => 'suppliers', 'Categories' => 'ingredient_categories', 'Units' => 'units'] as $l => $t) {
             $c = $wpdb->get_var('SELECT COUNT(*) FROM ' . BC_RMS_DB::table($t) . ' WHERE active=1');
             echo '<div class="bc-stat"><strong>' . $c . '</strong><span>' . $l . '</span></div>';
@@ -183,7 +224,7 @@ class BC_RMS_Admin
         echo '</div><div class="bc-card"><table class="widefat striped"><tr><th>Name</th><th>Category</th><th>Unit</th><th>Preferred Cost</th><th></th></tr>';
         foreach ($wpdb->get_results("SELECT i.*,c.name category,u.symbol FROM $it i LEFT JOIN $ct c ON c.id=i.category_id JOIN $ut u ON u.id=i.base_unit_id ORDER BY i.name") as $x) {
             $cost = BC_RMS_DB::preferred_cost($x->id);
-            echo '<tr><td>' . $x->name . '</td><td>' . $x->category . '</td><td>' . $x->symbol . '</td><td>' . ($cost === null ? '—' : '₱' . number_format($cost, 4) . '/' . $x->symbol) . '</td><td><a href="?page=bc-rms-ingredients&edit=' . $x->id . '">Edit</a></td></tr>';
+            echo '<tr><td>' . $x->name . '</td><td>' . $x->category . '</td><td>' . $x->symbol . '</td><td>' . ($cost === null ? '—' : '₱' . number_format($cost, 4) . '/' . $x->symbol) . '</td><td><a href="?page=bc-rms-ingredients&edit=' . $x->id . '">Edit</a> | <a class="bc-delete" onclick="return confirm(\'Permanently delete this ingredient? This cannot be undone.\')" href="' . esc_url(self::delete_url('bc-rms-ingredients','ingredient',$x->id)) . '">Delete</a></td></tr>';
         }
         echo '</table></div></div></div>';
     }
@@ -201,7 +242,7 @@ class BC_RMS_Admin
         self::end();
         echo '</div><div class="bc-card"><table class="widefat striped">';
         foreach ($wpdb->get_results("SELECT * FROM $t ORDER BY name") as $x)
-            echo '<tr><td>' . $x->name . '</td><td><a href="?page=bc-rms-categories&edit=' . $x->id . '">Edit</a></td></tr>';
+            echo '<tr><td>' . $x->name . '</td><td><a href="?page=bc-rms-categories&edit=' . $x->id . '">Edit</a> | <a class="bc-delete" onclick="return confirm(\'Permanently delete this category? This cannot be undone.\')" href="' . esc_url(self::delete_url('bc-rms-categories','category',$x->id)) . '">Delete</a></td></tr>';
         echo '</table></div></div></div>';
     }
     public static function suppliers()
@@ -220,7 +261,7 @@ class BC_RMS_Admin
         self::end();
         echo '</div><div class="bc-card"><table class="widefat striped"><tr><th>Supplier</th><th>Contact</th><th>Phone</th><th></th></tr>';
         foreach ($wpdb->get_results("SELECT * FROM $t ORDER BY name") as $x)
-            echo '<tr><td>' . $x->name . '</td><td>' . $x->contact_person . '</td><td>' . $x->phone . '</td><td><a href="?page=bc-rms-suppliers&edit=' . $x->id . '">Edit</a></td></tr>';
+            echo '<tr><td>' . $x->name . '</td><td>' . $x->contact_person . '</td><td>' . $x->phone . '</td><td><a href="?page=bc-rms-suppliers&edit=' . $x->id . '">Edit</a> | <a class="bc-delete" onclick="return confirm(\'Permanently delete this supplier? This cannot be undone.\')" href="' . esc_url(self::delete_url('bc-rms-suppliers','supplier',$x->id)) . '">Delete</a></td></tr>';
         echo '</table></div></div></div>';
     }
     public static function pricing()
@@ -247,7 +288,7 @@ class BC_RMS_Admin
         self::end();
         echo '</div><div class="bc-card"><table class="widefat striped"><tr><th>Ingredient</th><th>Supplier</th><th>Purchase</th><th>Price</th><th>Preferred</th><th></th></tr>';
         foreach ($wpdb->get_results("SELECT p.*,i.name ingredient,s.name supplier,u.symbol FROM $t p JOIN $i i ON i.id=p.ingredient_id JOIN $s s ON s.id=p.supplier_id JOIN $u u ON u.id=p.purchase_unit_id ORDER BY i.name,p.preferred DESC") as $x)
-            echo '<tr><td>' . $x->ingredient . '</td><td>' . $x->supplier . '</td><td>' . $x->purchase_qty . ' ' . $x->symbol . '</td><td>₱' . number_format($x->purchase_price, 2) . '</td><td>' . ($x->preferred ? '✓' : '') . '</td><td><a href="?page=bc-rms-pricing&edit=' . $x->id . '">Edit</a></td></tr>';
+            echo '<tr><td>' . $x->ingredient . '</td><td>' . $x->supplier . '</td><td>' . $x->purchase_qty . ' ' . $x->symbol . '</td><td>₱' . number_format($x->purchase_price, 2) . '</td><td>' . ($x->preferred ? '✓' : '') . '</td><td><a href="?page=bc-rms-pricing&edit=' . $x->id . '">Edit</a> | <a class="bc-delete" onclick="return confirm(\'Permanently delete this pricing record? This cannot be undone.\')" href="' . esc_url(self::delete_url('bc-rms-pricing','pricing',$x->id)) . '">Delete</a></td></tr>';
         echo '</table></div></div></div>';
     }
     public static function units()
@@ -268,7 +309,7 @@ class BC_RMS_Admin
         self::end();
         echo '</div><div class="bc-card"><table class="widefat striped"><tr><th>Name</th><th>Symbol</th><th>Type</th><th>Factor</th><th></th></tr>';
         foreach ($wpdb->get_results("SELECT * FROM $t ORDER BY unit_type,name") as $x)
-            echo '<tr><td>' . $x->name . '</td><td>' . $x->symbol . '</td><td>' . $x->unit_type . '</td><td>' . $x->factor_to_base . '</td><td><a href="?page=bc-rms-units&edit=' . $x->id . '">Edit</a></td></tr>';
+            echo '<tr><td>' . $x->name . '</td><td>' . $x->symbol . '</td><td>' . $x->unit_type . '</td><td>' . $x->factor_to_base . '</td><td><a href="?page=bc-rms-units&edit=' . $x->id . '">Edit</a> | <a class="bc-delete" onclick="return confirm(\'Permanently delete this unit? This cannot be undone.\')" href="' . esc_url(self::delete_url('bc-rms-units','unit',$x->id)) . '">Delete</a></td></tr>';
         echo '</table></div></div></div>';
     }
     public static function settings()
