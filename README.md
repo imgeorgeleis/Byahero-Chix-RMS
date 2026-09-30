@@ -105,3 +105,8 @@ Products now support packaging costs, variants, and modifier/add-on groups. Pack
 ### v0.5.1 Patch
 
 Fixes the product relationship forms introduced in v0.5.0. Packaging and modifier groups can now be assigned from the Product / Menu edit screen, and existing assignments can be removed.
+
+
+## POS Order Engine (v0.6.0)
+
+The first cashier-facing POS uses active POS-enabled products, variants and modifier rules. Checkout is validated server-side and completed orders snapshot product names, prices and direct costs so later menu edits do not rewrite history.

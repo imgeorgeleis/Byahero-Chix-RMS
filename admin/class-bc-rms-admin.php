@@ -7,6 +7,7 @@ class BC_RMS_Admin
     {
         add_action('admin_menu', [__CLASS__, 'menu']);
         add_action('admin_init', [__CLASS__, 'save']);
+        add_action('wp_ajax_bc_rms_checkout', [__CLASS__, 'ajax_checkout']);
         add_action('admin_init', [__CLASS__, 'delete']);
         add_action('admin_enqueue_scripts', [__CLASS__, 'assets']);
     }
@@ -24,6 +25,8 @@ class BC_RMS_Admin
         add_submenu_page('bc-rms', 'Supplier Pricing', 'Supplier Pricing', 'bc_manage_suppliers', 'bc-rms-pricing', [__CLASS__, 'pricing']);
         add_submenu_page('bc-rms', 'Recipes', 'Recipes', 'bc_manage_recipes', 'bc-rms-recipes', [__CLASS__, 'recipes']);
         add_submenu_page('bc-rms', 'Menu Categories', 'Menu Categories', 'bc_manage_products', 'bc-rms-product-categories', [__CLASS__, 'product_categories']);
+        add_submenu_page('bc-rms', 'POS', 'POS', 'bc_use_pos', 'bc-rms-pos', [__CLASS__, 'pos']);
+        add_submenu_page('bc-rms', 'Orders', 'Orders', 'bc_view_orders', 'bc-rms-orders', [__CLASS__, 'orders']);
         add_submenu_page('bc-rms', 'Products / Menu', 'Products / Menu', 'bc_manage_products', 'bc-rms-products', [__CLASS__, 'products']);
         add_submenu_page('bc-rms', 'Packaging', 'Packaging', 'bc_manage_packaging', 'bc-rms-packaging', [__CLASS__, 'packaging']);
         add_submenu_page('bc-rms', 'Variants', 'Variants', 'bc_manage_products', 'bc-rms-variants', [__CLASS__, 'variants']);
@@ -489,6 +492,45 @@ class BC_RMS_Admin
     /**
      * Render menu/product categories.
      */
+    public static function pos()
+    {
+        if(!current_user_can('bc_use_pos')) wp_die('Not allowed.');
+        $catalog=BC_RMS_POS_Service::catalog();
+        wp_enqueue_script('bc-rms-pos',BC_RMS_URL.'assets/js/pos.js',[],BC_RMS_VERSION,true);
+        wp_localize_script('bc-rms-pos','BCRMS_POS',['ajaxUrl'=>admin_url('admin-ajax.php'),'nonce'=>wp_create_nonce('bc_rms_pos'),'catalog'=>$catalog,'currency'=>'₱']);
+        echo '<div class="wrap bc-wrap bc-pos"><h1>Byahero Chix POS <small>v0.6.0</small></h1><div class="bc-pos-layout"><section><div class="bc-pos-toolbar"><input id="bc-pos-search" type="search" placeholder="Search menu..."><select id="bc-pos-category"><option value="">All Categories</option>';
+        $cats=[];foreach($catalog as $x)if(!empty($x['category_name']))$cats[$x['category_name']]=1;foreach(array_keys($cats) as $c)echo '<option>'.esc_html($c).'</option>';
+        echo '</select></div><div id="bc-pos-products" class="bc-pos-products"></div></section><aside class="bc-pos-cart"><h2>Current Order</h2><div class="bc-pos-order-type"><button type="button" data-type="dine_in" class="active">Dine-in</button><button type="button" data-type="takeout">Takeout</button></div><div id="bc-pos-cart-items"></div><div class="bc-pos-totals"><p><span>Subtotal</span><strong id="bc-pos-subtotal">₱0.00</strong></p><p><span>Discount</span><input id="bc-pos-discount" type="number" min="0" step="0.01" value="0"></p><p class="total"><span>Total</span><strong id="bc-pos-total">₱0.00</strong></p></div><label>Payment<select id="bc-pos-payment"><option value="cash">Cash</option><option value="gcash">GCash</option><option value="card">Card</option><option value="other">Other</option></select></label><label>Amount Tendered<input id="bc-pos-tendered" type="number" min="0" step="0.01"></label><button id="bc-pos-checkout" class="button button-primary button-hero">Complete Order</button><div id="bc-pos-message"></div></aside></div><div id="bc-pos-modal" class="bc-pos-modal" hidden><div class="bc-pos-modal-card"><button id="bc-pos-modal-close" type="button">×</button><div id="bc-pos-modal-body"></div></div></div></div>';
+    }
+
+    public static function ajax_checkout()
+    {
+        if(!current_user_can('bc_use_pos')) wp_send_json_error(['message'=>'Not allowed.'],403);
+        check_ajax_referer('bc_rms_pos','nonce');
+        $payload=json_decode(wp_unslash($_POST['order']??''),true);
+        if(!is_array($payload)) wp_send_json_error(['message'=>'Invalid order data.'],400);
+        $result=BC_RMS_POS_Service::create_order($payload);
+        if(is_wp_error($result)) wp_send_json_error(['message'=>$result->get_error_message()],400);
+        wp_send_json_success($result);
+    }
+
+    public static function orders()
+    {
+        if(!current_user_can('bc_view_orders')) wp_die('Not allowed.');
+        global $wpdb;$ot=BC_RMS_DB::table('orders');$oit=BC_RMS_DB::table('order_items');
+        $view=absint($_GET['view']??0);
+        echo '<div class="wrap bc-wrap"><h1>Orders</h1>';
+        if($view){
+            $o=$wpdb->get_row($wpdb->prepare("SELECT * FROM $ot WHERE id=%d",$view));if(!$o){echo '<p>Order not found.</p></div>';return;}
+            echo '<div class="bc-card"><h2>'.esc_html($o->order_number).'</h2><p><strong>'.esc_html(ucwords(str_replace('_',' ',$o->order_type))).'</strong> · '.esc_html($o->created_at).' · '.esc_html(strtoupper($o->payment_method)).'</p><table class="widefat striped"><tr><th>Item</th><th>Qty</th><th>Unit Price</th><th>Total</th></tr>';
+            foreach($wpdb->get_results($wpdb->prepare("SELECT * FROM $oit WHERE order_id=%d ORDER BY id",$view)) as $i)echo '<tr><td>'.esc_html($i->product_name.($i->variant_name?' — '.$i->variant_name:'')).'</td><td>'.esc_html($i->quantity).'</td><td>₱'.number_format($i->unit_price,2).'</td><td>₱'.number_format($i->line_total,2).'</td></tr>';
+            echo '</table><p><strong>Total: ₱'.number_format($o->total,2).'</strong> · Tendered: ₱'.number_format($o->amount_tendered,2).' · Change: ₱'.number_format($o->change_due,2).'</p></div><p><a href="?page=bc-rms-orders">← Back to Orders</a></p>';
+        }else{
+            echo '<div class="bc-card bc-wide"><table class="widefat striped"><tr><th>Order</th><th>Date</th><th>Type</th><th>Payment</th><th>Total</th><th>Cashier</th><th></th></tr>';
+            foreach($wpdb->get_results("SELECT * FROM $ot ORDER BY id DESC LIMIT 200") as $o){$u=get_userdata($o->cashier_user_id);echo '<tr><td><strong>'.esc_html($o->order_number).'</strong></td><td>'.esc_html($o->created_at).'</td><td>'.esc_html(ucwords(str_replace('_',' ',$o->order_type))).'</td><td>'.esc_html(strtoupper($o->payment_method)).'</td><td>₱'.number_format($o->total,2).'</td><td>'.esc_html($u?$u->display_name:'—').'</td><td><a href="?page=bc-rms-orders&view='.$o->id.'">View</a></td></tr>';}echo '</table></div>';
+        }echo '</div>';
+    }
+
     public static function packaging()
     {
         self::saved();global $wpdb;$t=BC_RMS_DB::table('packaging');$id=absint($_GET['edit']??0);$r=$id?$wpdb->get_row($wpdb->prepare("SELECT * FROM $t WHERE id=%d",$id)):null;

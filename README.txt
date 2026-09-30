@@ -2,7 +2,7 @@
 Contributors: georgeleis
 Tags: restaurant, pos, inventory, recipe, costing
 Requires at least: 6.4
-Stable tag: 0.5.1
+Stable tag: 0.6.0
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -69,3 +69,10 @@ For older releases, see CHANGELOG.md.
 * Fixed packaging assignment to products.
 * Fixed modifier-group assignment to products.
 * Added assignment removal controls.
+
+
+= 0.6.0 =
+* Added touchscreen POS interface and cart.
+* Added variants and modifiers during ordering.
+* Added order storage and order history.
+* Added cash, GCash, card and other payment methods.

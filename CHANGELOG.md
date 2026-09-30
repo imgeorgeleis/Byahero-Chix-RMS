@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.6.0
+- Added first functional touchscreen POS order screen.
+- Added menu search, category filtering, cart, variants, and modifiers.
+- Added dine-in/takeout, discounts, payment selection, cash tender and change.
+- Added server-side pricing and modifier validation.
+- Added immutable order price/cost snapshots and Orders history.
+
+
 ## 0.5.1
 - Fixed Product / Menu packaging assignment form routing.
 - Fixed Product / Menu modifier-group assignment form routing.
