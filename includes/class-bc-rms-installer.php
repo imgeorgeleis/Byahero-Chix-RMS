@@ -1,58 +1,23 @@
 <?php
-if (!defined('ABSPATH')) exit;
-
-class BC_RMS_Installer
-{
-    public static function activate()
-    {
-        self::tables();
-        self::seed();
-        self::roles();
-        update_option('bc_rms_db_version', '0.2.0');
+/** Install and migrate database schema. @package ByaheroChixRMS */
+if ( ! defined( 'ABSPATH' ) ) { exit; }
+class BC_RMS_Installer {
+    public static function activate(){ self::install(); self::roles(); }
+    public static function maybe_upgrade(){ if(version_compare((string)get_option('bc_rms_db_version','0.0.0'),BC_RMS_DB_VERSION,'<')) { self::install(); self::roles(); } }
+    private static function install(){ self::tables(); self::seed(); update_option('bc_rms_db_version',BC_RMS_DB_VERSION); }
+    private static function tables(){
+        global $wpdb; require_once ABSPATH.'wp-admin/includes/upgrade.php'; $c=$wpdb->get_charset_collate(); $t=fn($n)=>BC_RMS_DB::table($n); $sql=[];
+        $sql[]="CREATE TABLE {$t('units')} (id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,uuid CHAR(36) NOT NULL,name VARCHAR(50) NOT NULL,symbol VARCHAR(20) NOT NULL,unit_type VARCHAR(30) NOT NULL,factor_to_base DECIMAL(18,8) NOT NULL DEFAULT 1,is_base TINYINT(1) NOT NULL DEFAULT 0,active TINYINT(1) NOT NULL DEFAULT 1,created_at DATETIME NOT NULL,updated_at DATETIME NOT NULL,PRIMARY KEY (id),UNIQUE KEY uuid (uuid),UNIQUE KEY name (name),KEY unit_type (unit_type)) $c;";
+        $sql[]="CREATE TABLE {$t('unit_conversions')} (id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,uuid CHAR(36) NOT NULL,from_unit_id BIGINT UNSIGNED NOT NULL,to_unit_id BIGINT UNSIGNED NOT NULL,conversion_factor DECIMAL(18,8) NOT NULL,active TINYINT(1) NOT NULL DEFAULT 1,created_at DATETIME NOT NULL,updated_at DATETIME NOT NULL,PRIMARY KEY (id),UNIQUE KEY uuid (uuid),UNIQUE KEY conversion_pair (from_unit_id,to_unit_id)) $c;";
+        $sql[]="CREATE TABLE {$t('ingredient_categories')} (id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,uuid CHAR(36) NOT NULL,name VARCHAR(100) NOT NULL,description TEXT NULL,active TINYINT(1) NOT NULL DEFAULT 1,created_at DATETIME NOT NULL,updated_at DATETIME NOT NULL,PRIMARY KEY (id),UNIQUE KEY uuid (uuid),UNIQUE KEY name (name)) $c;";
+        $sql[]="CREATE TABLE {$t('ingredients')} (id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,uuid CHAR(36) NOT NULL,name VARCHAR(150) NOT NULL,category_id BIGINT UNSIGNED NULL,description TEXT NULL,base_unit_id BIGINT UNSIGNED NOT NULL,minimum_stock DECIMAL(14,4) NOT NULL DEFAULT 0,reorder_level DECIMAL(14,4) NOT NULL DEFAULT 0,track_inventory TINYINT(1) NOT NULL DEFAULT 1,active TINYINT(1) NOT NULL DEFAULT 1,created_at DATETIME NOT NULL,updated_at DATETIME NOT NULL,PRIMARY KEY (id),UNIQUE KEY uuid (uuid),KEY name (name),KEY category_id (category_id),KEY base_unit_id (base_unit_id)) $c;";
+        $sql[]="CREATE TABLE {$t('suppliers')} (id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,uuid CHAR(36) NOT NULL,name VARCHAR(150) NOT NULL,contact_person VARCHAR(150) NULL,phone VARCHAR(50) NULL,email VARCHAR(150) NULL,address TEXT NULL,lead_time_days INT NOT NULL DEFAULT 0,payment_terms VARCHAR(100) NULL,notes TEXT NULL,active TINYINT(1) NOT NULL DEFAULT 1,created_at DATETIME NOT NULL,updated_at DATETIME NOT NULL,PRIMARY KEY (id),UNIQUE KEY uuid (uuid),KEY name (name)) $c;";
+        $sql[]="CREATE TABLE {$t('supplier_items')} (id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,uuid CHAR(36) NOT NULL,supplier_id BIGINT UNSIGNED NOT NULL,ingredient_id BIGINT UNSIGNED NOT NULL,purchase_unit_id BIGINT UNSIGNED NOT NULL,purchase_qty DECIMAL(14,4) NOT NULL,purchase_price DECIMAL(14,2) NOT NULL,minimum_order DECIMAL(14,4) NULL,lead_time_days INT NULL,preferred TINYINT(1) NOT NULL DEFAULT 0,active TINYINT(1) NOT NULL DEFAULT 1,created_at DATETIME NOT NULL,updated_at DATETIME NOT NULL,PRIMARY KEY (id),UNIQUE KEY uuid (uuid),KEY supplier_id (supplier_id),KEY ingredient_id (ingredient_id)) $c;";
+        $sql[]="CREATE TABLE {$t('settings')} (id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,setting_key VARCHAR(150) NOT NULL,setting_value LONGTEXT NULL,created_at DATETIME NOT NULL,updated_at DATETIME NOT NULL,PRIMARY KEY (id),UNIQUE KEY setting_key (setting_key)) $c;";
+        $sql[]="CREATE TABLE {$t('recipes')} (id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,uuid CHAR(36) NOT NULL,name VARCHAR(150) NOT NULL,description TEXT NULL,yield_qty DECIMAL(14,4) NOT NULL DEFAULT 1,yield_unit_id BIGINT UNSIGNED NULL,servings DECIMAL(14,4) NOT NULL DEFAULT 1,waste_percent DECIMAL(8,4) NOT NULL DEFAULT 0,active TINYINT(1) NOT NULL DEFAULT 1,created_at DATETIME NOT NULL,updated_at DATETIME NOT NULL,PRIMARY KEY (id),UNIQUE KEY uuid (uuid),KEY name (name),KEY active (active)) $c;";
+        $sql[]="CREATE TABLE {$t('recipe_items')} (id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,uuid CHAR(36) NOT NULL,recipe_id BIGINT UNSIGNED NOT NULL,ingredient_id BIGINT UNSIGNED NOT NULL,quantity DECIMAL(14,4) NOT NULL,unit_id BIGINT UNSIGNED NOT NULL,notes VARCHAR(255) NULL,sort_order INT NOT NULL DEFAULT 0,created_at DATETIME NOT NULL,updated_at DATETIME NOT NULL,PRIMARY KEY (id),UNIQUE KEY uuid (uuid),KEY recipe_id (recipe_id),KEY ingredient_id (ingredient_id)) $c;";
+        foreach($sql as $q) dbDelta($q);
     }
-    private static function tables()
-    {
-        global $wpdb;
-        require_once ABSPATH . 'wp-admin/includes/upgrade.php';
-        $c = $wpdb->get_charset_collate();
-        $t = fn($n) => BC_RMS_DB::table($n);
-        $sql = [];
-        $sql[] = "CREATE TABLE {$t('units')} (id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,uuid CHAR(36) NOT NULL,name VARCHAR(50) NOT NULL,symbol VARCHAR(20) NOT NULL,unit_type VARCHAR(30) NOT NULL,factor_to_base DECIMAL(18,8) NOT NULL DEFAULT 1,is_base TINYINT(1) NOT NULL DEFAULT 0,active TINYINT(1) NOT NULL DEFAULT 1,created_at DATETIME NOT NULL,updated_at DATETIME NOT NULL,PRIMARY KEY (id),UNIQUE KEY uuid (uuid),UNIQUE KEY name (name),KEY unit_type (unit_type)) $c;";
-        $sql[] = "CREATE TABLE {$t('unit_conversions')} (id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,uuid CHAR(36) NOT NULL,from_unit_id BIGINT UNSIGNED NOT NULL,to_unit_id BIGINT UNSIGNED NOT NULL,conversion_factor DECIMAL(18,8) NOT NULL,active TINYINT(1) NOT NULL DEFAULT 1,created_at DATETIME NOT NULL,updated_at DATETIME NOT NULL,PRIMARY KEY (id),UNIQUE KEY uuid (uuid),UNIQUE KEY conversion_pair (from_unit_id,to_unit_id)) $c;";
-        $sql[] = "CREATE TABLE {$t('ingredient_categories')} (id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,uuid CHAR(36) NOT NULL,name VARCHAR(100) NOT NULL,description TEXT NULL,active TINYINT(1) NOT NULL DEFAULT 1,created_at DATETIME NOT NULL,updated_at DATETIME NOT NULL,PRIMARY KEY (id),UNIQUE KEY uuid (uuid),UNIQUE KEY name (name)) $c;";
-        $sql[] = "CREATE TABLE {$t('ingredients')} (id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,uuid CHAR(36) NOT NULL,name VARCHAR(150) NOT NULL,category_id BIGINT UNSIGNED NULL,description TEXT NULL,base_unit_id BIGINT UNSIGNED NOT NULL,minimum_stock DECIMAL(14,4) NOT NULL DEFAULT 0,reorder_level DECIMAL(14,4) NOT NULL DEFAULT 0,track_inventory TINYINT(1) NOT NULL DEFAULT 1,active TINYINT(1) NOT NULL DEFAULT 1,created_at DATETIME NOT NULL,updated_at DATETIME NOT NULL,PRIMARY KEY (id),UNIQUE KEY uuid (uuid),KEY name (name),KEY category_id (category_id),KEY base_unit_id (base_unit_id)) $c;";
-        $sql[] = "CREATE TABLE {$t('suppliers')} (id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,uuid CHAR(36) NOT NULL,name VARCHAR(150) NOT NULL,contact_person VARCHAR(150) NULL,phone VARCHAR(50) NULL,email VARCHAR(150) NULL,address TEXT NULL,lead_time_days INT NOT NULL DEFAULT 0,payment_terms VARCHAR(100) NULL,notes TEXT NULL,active TINYINT(1) NOT NULL DEFAULT 1,created_at DATETIME NOT NULL,updated_at DATETIME NOT NULL,PRIMARY KEY (id),UNIQUE KEY uuid (uuid),KEY name (name)) $c;";
-        $sql[] = "CREATE TABLE {$t('supplier_items')} (id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,uuid CHAR(36) NOT NULL,supplier_id BIGINT UNSIGNED NOT NULL,ingredient_id BIGINT UNSIGNED NOT NULL,purchase_unit_id BIGINT UNSIGNED NOT NULL,purchase_qty DECIMAL(14,4) NOT NULL,purchase_price DECIMAL(14,2) NOT NULL,minimum_order DECIMAL(14,4) NULL,lead_time_days INT NULL,preferred TINYINT(1) NOT NULL DEFAULT 0,active TINYINT(1) NOT NULL DEFAULT 1,created_at DATETIME NOT NULL,updated_at DATETIME NOT NULL,PRIMARY KEY (id),UNIQUE KEY uuid (uuid),KEY supplier_id (supplier_id),KEY ingredient_id (ingredient_id)) $c;";
-        $sql[] = "CREATE TABLE {$t('settings')} (id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,setting_key VARCHAR(150) NOT NULL,setting_value LONGTEXT NULL,created_at DATETIME NOT NULL,updated_at DATETIME NOT NULL,PRIMARY KEY (id),UNIQUE KEY setting_key (setting_key)) $c;";
-        foreach ($sql as $q)
-            dbDelta($q);
-    }
-    private static function seed()
-    {
-        global $wpdb;
-        $u = BC_RMS_DB::table('units');
-        $n = BC_RMS_DB::now();
-        $units = [['gram', 'g', 'weight', 1, 1], ['kilogram', 'kg', 'weight', 1000, 0], ['milliliter', 'ml', 'volume', 1, 1], ['liter', 'L', 'volume', 1000, 0], ['piece', 'pc', 'count', 1, 1], ['pack', 'pack', 'package', 1, 1], ['box', 'box', 'package', 1, 1], ['bottle', 'btl', 'package', 1, 1], ['case', 'case', 'package', 1, 1]];
-        foreach ($units as $x) {
-            if (!$wpdb->get_var($wpdb->prepare("SELECT id FROM $u WHERE name=%s", $x[0])))
-                $wpdb->insert($u, ['uuid' => BC_RMS_DB::uuid(), 'name' => $x[0], 'symbol' => $x[1], 'unit_type' => $x[2], 'factor_to_base' => $x[3], 'is_base' => $x[4], 'active' => 1, 'created_at' => $n, 'updated_at' => $n]);
-        }
-        $s = BC_RMS_DB::table('settings');
-        foreach (['business_name' => 'BYAHERO CHIX', 'currency' => 'PHP', 'currency_symbol' => '₱', 'timezone' => 'Asia/Manila', 'target_food_cost' => '35', 'target_margin' => '40'] as $k => $v) {
-            if (!$wpdb->get_var($wpdb->prepare("SELECT id FROM $s WHERE setting_key=%s", $k)))
-                $wpdb->insert($s, ['setting_key' => $k, 'setting_value' => $v, 'created_at' => $n, 'updated_at' => $n]);
-        }
-    }
-    private static function roles()
-    {
-        $caps = ['bc_view_rms', 'bc_manage_ingredients', 'bc_manage_units', 'bc_manage_suppliers', 'bc_manage_settings'];
-        $a = get_role('administrator');
-        if ($a)
-            foreach ($caps as $c)
-                $a->add_cap($c);
-        $m = add_role('bc_manager', 'BC Manager', ['read' => true]) ?: get_role('bc_manager');
-        if ($m)
-            foreach ($caps as $c)
-                $m->add_cap($c);
-    }
+    private static function seed(){ global $wpdb; $u=BC_RMS_DB::table('units');$n=BC_RMS_DB::now();$units=[['gram','g','weight',1,1],['kilogram','kg','weight',1000,0],['milliliter','ml','volume',1,1],['liter','L','volume',1000,0],['piece','pc','count',1,1],['pack','pack','package',1,1],['box','box','package',1,1],['bottle','btl','package',1,1],['case','case','package',1,1]];foreach($units as $x){if(!$wpdb->get_var($wpdb->prepare("SELECT id FROM $u WHERE name=%s",$x[0])))$wpdb->insert($u,['uuid'=>BC_RMS_DB::uuid(),'name'=>$x[0],'symbol'=>$x[1],'unit_type'=>$x[2],'factor_to_base'=>$x[3],'is_base'=>$x[4],'active'=>1,'created_at'=>$n,'updated_at'=>$n]);} $s=BC_RMS_DB::table('settings');foreach(['business_name'=>'BYAHERO CHIX','currency'=>'PHP','currency_symbol'=>'₱','timezone'=>'Asia/Manila','target_food_cost'=>'35','target_margin'=>'40'] as $k=>$v){if(!$wpdb->get_var($wpdb->prepare("SELECT id FROM $s WHERE setting_key=%s",$k)))$wpdb->insert($s,['setting_key'=>$k,'setting_value'=>$v,'created_at'=>$n,'updated_at'=>$n]);}}
+    private static function roles(){ $caps=['bc_view_rms','bc_manage_ingredients','bc_manage_units','bc_manage_suppliers','bc_manage_settings','bc_manage_recipes'];$a=get_role('administrator');if($a)foreach($caps as $c)$a->add_cap($c);$m=add_role('bc_manager','BC Manager',['read'=>true])?:get_role('bc_manager');if($m)foreach($caps as $c)$m->add_cap($c); }
 }
