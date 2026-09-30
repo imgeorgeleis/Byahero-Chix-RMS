@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.5.0
+- Added Packaging and per-product packaging costing.
+- Added Product Variants with price/cost adjustments.
+- Added Modifier Groups and Modifiers/Add-ons.
+- Added product-to-modifier-group assignments.
+- Expanded product direct-cost and margin calculations.
+- Added dependency protection for new relationships.
+- Preserved v0.4.0 data through automatic schema upgrades.
+
+
 ## 0.4.0
 - Added Menu Categories.
 - Added sellable Products / Menu master data.

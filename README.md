@@ -95,3 +95,8 @@ configured target food-cost percentage.
 This release intentionally keeps one recipe as the primary cost basis for one product.
 Modifiers, add-ons, sizes, bundles, packaging costs, taxes, and POS transactions are
 planned as later modules.
+
+
+## Product Configuration & Costing (v0.5.0)
+
+Products now support packaging costs, variants, and modifier/add-on groups. Packaging contributes to base direct cost. Variants and modifiers carry independent selling-price and cost adjustments for use by the future POS order engine.

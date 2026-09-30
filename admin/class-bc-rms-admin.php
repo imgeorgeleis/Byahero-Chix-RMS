@@ -25,6 +25,9 @@ class BC_RMS_Admin
         add_submenu_page('bc-rms', 'Recipes', 'Recipes', 'bc_manage_recipes', 'bc-rms-recipes', [__CLASS__, 'recipes']);
         add_submenu_page('bc-rms', 'Menu Categories', 'Menu Categories', 'bc_manage_products', 'bc-rms-product-categories', [__CLASS__, 'product_categories']);
         add_submenu_page('bc-rms', 'Products / Menu', 'Products / Menu', 'bc_manage_products', 'bc-rms-products', [__CLASS__, 'products']);
+        add_submenu_page('bc-rms', 'Packaging', 'Packaging', 'bc_manage_packaging', 'bc-rms-packaging', [__CLASS__, 'packaging']);
+        add_submenu_page('bc-rms', 'Variants', 'Variants', 'bc_manage_products', 'bc-rms-variants', [__CLASS__, 'variants']);
+        add_submenu_page('bc-rms', 'Modifiers', 'Modifiers', 'bc_manage_modifiers', 'bc-rms-modifiers', [__CLASS__, 'modifiers']);
         add_submenu_page('bc-rms', 'Units', 'Units', 'bc_manage_units', 'bc-rms-units', [__CLASS__, 'units']);
         add_submenu_page('bc-rms', 'Settings', 'Settings', 'bc_manage_settings', 'bc-rms-settings', [__CLASS__, 'settings']);
     }
@@ -57,6 +60,10 @@ class BC_RMS_Admin
             'recipe_item'=>['recipe_items','bc_manage_recipes','bc-rms-recipes'],
             'product_category'=>['product_categories','bc_manage_products','bc-rms-product-categories'],
             'product'=>['products','bc_manage_products','bc-rms-products'],
+            'packaging'=>['packaging','bc_manage_packaging','bc-rms-packaging'],
+            'variant'=>['product_variants','bc_manage_products','bc-rms-variants'],
+            'modifier_group'=>['modifier_groups','bc_manage_modifiers','bc-rms-modifiers'],
+            'modifier'=>['modifiers','bc_manage_modifiers','bc-rms-modifiers'],
         ];
         if (!isset($map[$type]) || !current_user_can($map[$type][1])) wp_die('Invalid request.');
         check_admin_referer('bc_rms_delete_'.$type.'_'.$id);
@@ -70,6 +77,18 @@ class BC_RMS_Admin
         } elseif ($type === 'supplier') {
             $count=(int)$wpdb->get_var($wpdb->prepare('SELECT COUNT(*) FROM '.BC_RMS_DB::table('supplier_items').' WHERE supplier_id=%d',$id));
             if($count) $blocked='This supplier has Supplier Pricing records. Delete those pricing records first, or set the supplier to Inactive.';
+        } elseif ($type === 'packaging') {
+            $count=(int)$wpdb->get_var($wpdb->prepare('SELECT COUNT(*) FROM '.BC_RMS_DB::table('product_packaging').' WHERE packaging_id=%d',$id));
+            if($count) $blocked='This packaging item is assigned to a product. Remove the assignment first.';
+        } elseif ($type === 'modifier_group') {
+            $m=(int)$wpdb->get_var($wpdb->prepare('SELECT COUNT(*) FROM '.BC_RMS_DB::table('modifiers').' WHERE group_id=%d',$id));
+            $p=(int)$wpdb->get_var($wpdb->prepare('SELECT COUNT(*) FROM '.BC_RMS_DB::table('product_modifier_groups').' WHERE group_id=%d',$id));
+            if($m+$p) $blocked='This modifier group has modifiers or product assignments. Remove them first.';
+        } elseif ($type === 'product') {
+            $v=(int)$wpdb->get_var($wpdb->prepare('SELECT COUNT(*) FROM '.BC_RMS_DB::table('product_variants').' WHERE product_id=%d',$id));
+            $p=(int)$wpdb->get_var($wpdb->prepare('SELECT COUNT(*) FROM '.BC_RMS_DB::table('product_packaging').' WHERE product_id=%d',$id));
+            $g=(int)$wpdb->get_var($wpdb->prepare('SELECT COUNT(*) FROM '.BC_RMS_DB::table('product_modifier_groups').' WHERE product_id=%d',$id));
+            if($v+$p+$g) $blocked='This product has variants, packaging, or modifier assignments. Remove them first.';
         } elseif ($type === 'product_category') {
             $count=(int)$wpdb->get_var($wpdb->prepare('SELECT COUNT(*) FROM '.BC_RMS_DB::table('products').' WHERE category_id=%d',$id));
             if($count) $blocked='This menu category is assigned to one or more products. Reassign those products first.';
@@ -176,6 +195,50 @@ class BC_RMS_Admin
             if($id)$wpdb->update($t,$d,['id'=>$id]);else{$d+=['uuid'=>BC_RMS_DB::uuid(),'created_at'=>$n];$wpdb->insert($t,$d);}
             self::go('bc-rms-recipes',['saved'=>1,'edit'=>$recipe_id]);
         }
+        if ($a === 'packaging') {
+            if (!current_user_can('bc_manage_packaging')) wp_die('Not allowed.');
+            $t=BC_RMS_DB::table('packaging');$id=absint($_POST['id']??0);
+            $d=['name'=>sanitize_text_field($_POST['name']??''),'unit_cost'=>max(0,(float)($_POST['unit_cost']??0)),'notes'=>sanitize_textarea_field($_POST['notes']??''),'active'=>isset($_POST['active'])?1:0,'updated_at'=>$n];
+            if(!$d['name']) wp_die('Packaging name is required.');
+            if($id)$wpdb->update($t,$d,['id'=>$id]);else{$d+=['uuid'=>BC_RMS_DB::uuid(),'created_at'=>$n];$wpdb->insert($t,$d);}self::go('bc-rms-packaging');
+        }
+        if ($a === 'variant') {
+            if (!current_user_can('bc_manage_products')) wp_die('Not allowed.');
+            $t=BC_RMS_DB::table('product_variants');$id=absint($_POST['id']??0);$pid=absint($_POST['product_id']??0);
+            if(isset($_POST['default_variant']))$wpdb->update($t,['default_variant'=>0],['product_id'=>$pid]);
+            $d=['product_id'=>$pid,'name'=>sanitize_text_field($_POST['name']??''),'sku'=>sanitize_text_field($_POST['sku']??'')?:null,'price_adjustment'=>(float)($_POST['price_adjustment']??0),'cost_adjustment'=>(float)($_POST['cost_adjustment']??0),'default_variant'=>isset($_POST['default_variant'])?1:0,'active'=>isset($_POST['active'])?1:0,'sort_order'=>absint($_POST['sort_order']??0),'updated_at'=>$n];
+            if(!$pid||!$d['name'])wp_die('Product and variant name are required.');
+            if($id)$wpdb->update($t,$d,['id'=>$id]);else{$d+=['uuid'=>BC_RMS_DB::uuid(),'created_at'=>$n];$wpdb->insert($t,$d);}self::go('bc-rms-variants');
+        }
+        if ($a === 'modifier_group') {
+            if (!current_user_can('bc_manage_modifiers')) wp_die('Not allowed.');
+            $t=BC_RMS_DB::table('modifier_groups');$id=absint($_POST['id']??0);$type=in_array($_POST['selection_type']??'multiple',['single','multiple'],true)?$_POST['selection_type']:'multiple';
+            $d=['name'=>sanitize_text_field($_POST['name']??''),'selection_type'=>$type,'min_select'=>absint($_POST['min_select']??0),'max_select'=>absint($_POST['max_select']??0),'required_group'=>isset($_POST['required_group'])?1:0,'active'=>isset($_POST['active'])?1:0,'sort_order'=>absint($_POST['sort_order']??0),'updated_at'=>$n];
+            if(!$d['name'])wp_die('Modifier group name is required.');
+            if($id)$wpdb->update($t,$d,['id'=>$id]);else{$d+=['uuid'=>BC_RMS_DB::uuid(),'created_at'=>$n];$wpdb->insert($t,$d);}self::go('bc-rms-modifiers');
+        }
+        if ($a === 'modifier') {
+            if (!current_user_can('bc_manage_modifiers')) wp_die('Not allowed.');
+            $t=BC_RMS_DB::table('modifiers');$id=absint($_POST['id']??0);
+            $d=['group_id'=>absint($_POST['group_id']??0),'name'=>sanitize_text_field($_POST['name']??''),'price_adjustment'=>(float)($_POST['price_adjustment']??0),'cost_adjustment'=>(float)($_POST['cost_adjustment']??0),'active'=>isset($_POST['active'])?1:0,'sort_order'=>absint($_POST['sort_order']??0),'updated_at'=>$n];
+            if(!$d['group_id']||!$d['name'])wp_die('Modifier group and modifier name are required.');
+            if($id)$wpdb->update($t,$d,['id'=>$id]);else{$d+=['uuid'=>BC_RMS_DB::uuid(),'created_at'=>$n];$wpdb->insert($t,$d);}self::go('bc-rms-modifiers');
+        }
+        if ($a === 'product_packaging') {
+            if (!current_user_can('bc_manage_packaging')) wp_die('Not allowed.');
+            $t=BC_RMS_DB::table('product_packaging');$pid=absint($_POST['product_id']??0);$pk=absint($_POST['packaging_id']??0);$qty=max(.0001,(float)($_POST['quantity']??1));
+            if(!$pid||!$pk)wp_die('Product and packaging are required.');
+            $eid=(int)$wpdb->get_var($wpdb->prepare("SELECT id FROM $t WHERE product_id=%d AND packaging_id=%d",$pid,$pk));
+            if($eid)$wpdb->update($t,['quantity'=>$qty,'updated_at'=>$n],['id'=>$eid]);else$wpdb->insert($t,['uuid'=>BC_RMS_DB::uuid(),'product_id'=>$pid,'packaging_id'=>$pk,'quantity'=>$qty,'created_at'=>$n,'updated_at'=>$n]);
+            self::go('bc-rms-products',['edit'=>$pid,'saved'=>1]);
+        }
+        if ($a === 'assign_modifier_group') {
+            if (!current_user_can('bc_manage_modifiers')) wp_die('Not allowed.');
+            $t=BC_RMS_DB::table('product_modifier_groups');$pid=absint($_POST['product_id']??0);$gid=absint($_POST['group_id']??0);
+            if(!$pid||!$gid)wp_die('Product and modifier group are required.');
+            if(!$wpdb->get_var($wpdb->prepare("SELECT id FROM $t WHERE product_id=%d AND group_id=%d",$pid,$gid)))$wpdb->insert($t,['uuid'=>BC_RMS_DB::uuid(),'product_id'=>$pid,'group_id'=>$gid,'created_at'=>$n]);
+            self::go('bc-rms-products',['edit'=>$pid,'saved'=>1]);
+        }
         if ($a === 'product_category') {
             if (!current_user_can('bc_manage_products')) wp_die('Not allowed.');
             $t=BC_RMS_DB::table('product_categories');$id=absint($_POST['id']??0);
@@ -270,12 +333,12 @@ class BC_RMS_Admin
     public static function dashboard()
     {
         global $wpdb;
-        echo '<div class="wrap bc-wrap"><h1>Byahero Chix RMS <small>v0.4.0</small></h1><div class="bc-stats">';
+        echo '<div class="wrap bc-wrap"><h1>Byahero Chix RMS <small>v0.5.0</small></h1><div class="bc-stats">';
         foreach (['Ingredients' => 'ingredients', 'Recipes' => 'recipes', 'Products' => 'products', 'Suppliers' => 'suppliers'] as $l => $t) {
             $c = $wpdb->get_var('SELECT COUNT(*) FROM ' . BC_RMS_DB::table($t) . ' WHERE active=1');
             echo '<div class="bc-stat"><strong>' . $c . '</strong><span>' . $l . '</span></div>';
         }
-        echo '</div><div class="bc-card"><h2>Menu & Product Build</h2><p>Recipes can now be mapped to sellable menu products with selling prices, food-cost percentage, gross margin, and target-price guidance.</p></div></div>';
+        echo '</div><div class="bc-card"><h2>Product Configuration & Costing Build</h2><p>Products now support packaging costs, variants, and modifier/add-on groups in preparation for the POS order engine.</p></div></div>';
     }
     public static function ingredients()
     {
@@ -414,6 +477,28 @@ class BC_RMS_Admin
     /**
      * Render menu/product categories.
      */
+    public static function packaging()
+    {
+        self::saved();global $wpdb;$t=BC_RMS_DB::table('packaging');$id=absint($_GET['edit']??0);$r=$id?$wpdb->get_row($wpdb->prepare("SELECT * FROM $t WHERE id=%d",$id)):null;
+        echo '<div class="wrap bc-wrap"><h1>Packaging</h1><div class="bc-grid"><div>';self::form('packaging',$id);self::f('Name','name',$r->name??'');self::f('Unit Cost','unit_cost',$r->unit_cost??0,'number','0.0001');echo '<p><label><b>Notes</b><br><textarea class="large-text" rows="4" name="notes">'.esc_textarea($r->notes??'').'</textarea></label></p>';self::c('Active','active',!$r||$r->active);self::end();
+        echo '</div><div class="bc-card"><table class="widefat striped"><tr><th>Packaging</th><th>Unit Cost</th><th>Status</th><th></th></tr>';foreach($wpdb->get_results("SELECT * FROM $t ORDER BY active DESC,name") as $x)echo '<tr><td>'.esc_html($x->name).'</td><td>₱'.number_format($x->unit_cost,4).'</td><td>'.($x->active?'Active':'Inactive').'</td><td><a href="?page=bc-rms-packaging&edit='.$x->id.'">Edit</a> | <a class="bc-delete" onclick="return confirm(\'Delete this packaging item?\')" href="'.esc_url(self::delete_url('bc-rms-packaging','packaging',$x->id)).'">Delete</a></td></tr>';echo '</table></div></div></div>';
+    }
+
+    public static function variants()
+    {
+        self::saved();global $wpdb;$t=BC_RMS_DB::table('product_variants');$pt=BC_RMS_DB::table('products');$id=absint($_GET['edit']??0);$r=$id?$wpdb->get_row($wpdb->prepare("SELECT * FROM $t WHERE id=%d",$id)):null;$products=$wpdb->get_results("SELECT id,name FROM $pt WHERE active=1 ORDER BY name");
+        echo '<div class="wrap bc-wrap"><h1>Product Variants</h1><div class="bc-grid"><div>';self::form('variant',$id);self::sel_optional('Product','product_id',$products,$r->product_id??0);self::f('Variant Name','name',$r->name??'');self::f('Variant SKU','sku',$r->sku??'');self::f('Price Adjustment','price_adjustment',$r->price_adjustment??0,'number','0.01');self::f('Cost Adjustment','cost_adjustment',$r->cost_adjustment??0,'number','0.0001');self::f('Sort Order','sort_order',$r->sort_order??0,'number','1');self::c('Default Variant','default_variant',$r&&$r->default_variant);self::c('Active','active',!$r||$r->active);self::end();
+        echo '</div><div class="bc-card bc-wide"><table class="widefat striped"><tr><th>Product</th><th>Variant</th><th>Price +/-</th><th>Cost +/-</th><th>Default</th><th></th></tr>';foreach($wpdb->get_results("SELECT v.*,p.name product FROM $t v JOIN $pt p ON p.id=v.product_id ORDER BY p.name,v.sort_order,v.name") as $x)echo '<tr><td>'.esc_html($x->product).'</td><td>'.esc_html($x->name).'</td><td>₱'.number_format($x->price_adjustment,2).'</td><td>₱'.number_format($x->cost_adjustment,4).'</td><td>'.($x->default_variant?'Yes':'').'</td><td><a href="?page=bc-rms-variants&edit='.$x->id.'">Edit</a> | <a class="bc-delete" onclick="return confirm(\'Delete this variant?\')" href="'.esc_url(self::delete_url('bc-rms-variants','variant',$x->id)).'">Delete</a></td></tr>';echo '</table></div></div></div>';
+    }
+
+    public static function modifiers()
+    {
+        self::saved();global $wpdb;$gt=BC_RMS_DB::table('modifier_groups');$mt=BC_RMS_DB::table('modifiers');$gid=absint($_GET['edit_group']??0);$g=$gid?$wpdb->get_row($wpdb->prepare("SELECT * FROM $gt WHERE id=%d",$gid)):null;$mid=absint($_GET['edit_modifier']??0);$m=$mid?$wpdb->get_row($wpdb->prepare("SELECT * FROM $mt WHERE id=%d",$mid)):null;$groups=$wpdb->get_results("SELECT id,name FROM $gt WHERE active=1 ORDER BY sort_order,name");
+        echo '<div class="wrap bc-wrap"><h1>Modifiers & Add-ons</h1><div class="bc-grid"><div>';self::form('modifier_group',$gid);self::f('Group Name','name',$g->name??'');echo '<p><label><b>Selection Type</b><br><select name="selection_type"><option value="multiple" '.selected($g->selection_type??'multiple','multiple',false).'>Multiple</option><option value="single" '.selected($g->selection_type??'','single',false).'>Single</option></select></label></p>';self::f('Minimum Select','min_select',$g->min_select??0,'number','1');self::f('Maximum Select (0 = no limit)','max_select',$g->max_select??0,'number','1');self::f('Sort Order','sort_order',$g->sort_order??0,'number','1');self::c('Required Group','required_group',$g&&$g->required_group);self::c('Active','active',!$g||$g->active);self::end();
+        echo '<div class="bc-card">';self::form('modifier',$mid);self::sel_optional('Modifier Group','group_id',$groups,$m->group_id??0);self::f('Modifier Name','name',$m->name??'');self::f('Price Adjustment','price_adjustment',$m->price_adjustment??0,'number','0.01');self::f('Cost Adjustment','cost_adjustment',$m->cost_adjustment??0,'number','0.0001');self::f('Sort Order','sort_order',$m->sort_order??0,'number','1');self::c('Active','active',!$m||$m->active);self::end();echo '</div></div>';
+        echo '<div class="bc-card bc-wide"><table class="widefat striped"><tr><th>Group</th><th>Type</th><th>Rules</th><th>Modifier</th><th>Price +/-</th><th>Cost +/-</th><th></th></tr>';$rows=$wpdb->get_results("SELECT g.id gid,g.name group_name,g.selection_type,g.min_select,g.max_select,m.id mid,m.name modifier,m.price_adjustment,m.cost_adjustment FROM $gt g LEFT JOIN $mt m ON m.group_id=g.id ORDER BY g.sort_order,g.name,m.sort_order,m.name");foreach($rows as $x)echo '<tr><td>'.esc_html($x->group_name).'</td><td>'.esc_html($x->selection_type).'</td><td>'.absint($x->min_select).'–'.($x->max_select?absint($x->max_select):'∞').'</td><td>'.esc_html($x->modifier?:'—').'</td><td>'.($x->mid?'₱'.number_format($x->price_adjustment,2):'—').'</td><td>'.($x->mid?'₱'.number_format($x->cost_adjustment,4):'—').'</td><td><a href="?page=bc-rms-modifiers&edit_group='.$x->gid.'">Edit Group</a>'.($x->mid?' | <a href="?page=bc-rms-modifiers&edit_modifier='.$x->mid.'">Edit Modifier</a>':'').'</td></tr>';echo '</table></div></div></div>';
+    }
+
     public static function product_categories()
     {
         self::saved();
@@ -469,12 +554,18 @@ class BC_RMS_Admin
             $summary=BC_RMS_Product_Service::summary($id);
             echo '<div class="bc-card"><h2>Product Costing</h2><div class="bc-cost-grid">';
             echo '<div><span>Recipe Cost / Serving</span><strong>'.(null===$summary['recipe_cost']?'—':'₱'.number_format($summary['recipe_cost'],2)).'</strong></div>';
+            echo '<div><span>Packaging Cost</span><strong>₱'.number_format($summary['packaging_cost'],2).'</strong></div>';
+            echo '<div><span>Total Base Cost</span><strong>'.(null===$summary['base_cost']?'—':'₱'.number_format($summary['base_cost'],2)).'</strong></div>';
             echo '<div><span>Selling Price</span><strong>₱'.number_format($summary['selling_price'],2).'</strong></div>';
             echo '<div><span>Food Cost %</span><strong>'.(null===$summary['food_cost_percent']?'—':number_format($summary['food_cost_percent'],1).'%').'</strong></div>';
             echo '<div><span>Gross Margin</span><strong>'.(null===$summary['gross_margin_percent']?'—':number_format($summary['gross_margin_percent'],1).'%').'</strong></div>';
             echo '<div><span>Gross Profit</span><strong>'.(null===$summary['gross_profit']?'—':'₱'.number_format($summary['gross_profit'],2)).'</strong></div>';
             echo '<div><span>Suggested Price @ '.esc_html(BC_RMS_DB::setting('target_food_cost','35')).'% Food Cost</span><strong>'.(null===$summary['suggested_price']?'—':'₱'.number_format($summary['suggested_price'],2)).'</strong></div>';
             echo '</div>';
+            $packt=BC_RMS_DB::table('packaging');$ppt=BC_RMS_DB::table('product_packaging');$packs=$wpdb->get_results("SELECT id,name,unit_cost FROM $packt WHERE active=1 ORDER BY name");
+            echo '<hr><h3>Packaging Assignment</h3><form method="post">';wp_nonce_field('bc_rms');echo '<input type="hidden" name="bc_action" value="product_packaging"><input type="hidden" name="product_id" value="'.absint($id).'"><select name="packaging_id" required><option value="">— Select Packaging —</option>';foreach($packs as $pk)echo '<option value="'.absint($pk->id).'">'.esc_html($pk->name).' — ₱'.number_format($pk->unit_cost,2).'</option>';echo '</select> <input type="number" step="0.0001" min="0.0001" name="quantity" value="1" style="width:90px"> ';submit_button('Add / Update','secondary','submit',false);echo '</form>';
+            $assigned=$wpdb->get_results($wpdb->prepare("SELECT pp.*,p.name,p.unit_cost FROM $ppt pp JOIN $packt p ON p.id=pp.packaging_id WHERE pp.product_id=%d ORDER BY p.name",$id));if($assigned){echo '<table class="widefat striped"><tr><th>Packaging</th><th>Qty</th><th>Subtotal</th></tr>';foreach($assigned as $pk)echo '<tr><td>'.esc_html($pk->name).'</td><td>'.number_format($pk->quantity,4).'</td><td>₱'.number_format($pk->quantity*$pk->unit_cost,2).'</td></tr>';echo '</table>';}
+            $mgt=BC_RMS_DB::table('modifier_groups');$groups=$wpdb->get_results("SELECT id,name FROM $mgt WHERE active=1 ORDER BY sort_order,name");echo '<hr><h3>Modifier Group Assignment</h3><form method="post">';wp_nonce_field('bc_rms');echo '<input type="hidden" name="bc_action" value="assign_modifier_group"><input type="hidden" name="product_id" value="'.absint($id).'"><select name="group_id" required><option value="">— Select Group —</option>';foreach($groups as $g)echo '<option value="'.absint($g->id).'">'.esc_html($g->name).'</option>';echo '</select> ';submit_button('Assign','secondary','submit',false);echo '</form>';
             if($summary['missing_costs']) echo '<p class="bc-warning">The linked recipe has '.absint($summary['missing_costs']).' ingredient(s) with missing supplier cost. Product costing is incomplete.</p>';
             if(!$r->recipe_id) echo '<p class="bc-warning">No recipe is linked. Cost and margin calculations are unavailable until a recipe is selected.</p>';
             echo '</div>';
