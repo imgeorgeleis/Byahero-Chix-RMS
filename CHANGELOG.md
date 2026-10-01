@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.8.0
+- Added physical packaging inventory ledger.
+- Added packaging stock receiving, adjustments, waste/damage, and audit history.
+- Product packaging assignments now participate in POS availability.
+- Checkout automatically deducts assigned packaging quantities.
+- Voiding an order automatically restores packaging stock.
+- POS maximum sellable quantity considers both recipe ingredients and packaging.
+- Added Packaging Stock admin screen.
+- Existing packaging records default to inventory tracking enabled.
+
+
 ## 0.7.1
 - Added recipe-based POS stock availability checks.
 - Products that cannot produce one serving are disabled in POS.

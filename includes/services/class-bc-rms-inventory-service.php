@@ -40,6 +40,23 @@ class BC_RMS_Inventory_Service {
         ]);
     }
 
+    public static function packaging_stock($packaging_id) {
+        global $wpdb;$mt=BC_RMS_DB::table('packaging_movements');
+        return (float)$wpdb->get_var($wpdb->prepare("SELECT COALESCE(SUM(quantity_delta),0) FROM $mt WHERE packaging_id=%d",$packaging_id));
+    }
+
+    public static function add_packaging_movement($packaging_id,$type,$delta,$args=[]) {
+        global $wpdb;$mt=BC_RMS_DB::table('packaging_movements');
+        if(!$packaging_id || abs((float)$delta)<0.0000001) return false;
+        return (bool)$wpdb->insert($mt,['uuid'=>BC_RMS_DB::uuid(),'packaging_id'=>(int)$packaging_id,'movement_type'=>sanitize_key($type),'quantity_delta'=>(float)$delta,'unit_cost'=>isset($args['unit_cost'])?(float)$args['unit_cost']:null,'reference_type'=>isset($args['reference_type'])?sanitize_key($args['reference_type']):null,'reference_id'=>isset($args['reference_id'])?(int)$args['reference_id']:null,'reference_code'=>isset($args['reference_code'])?sanitize_text_field($args['reference_code']):null,'notes'=>isset($args['notes'])?sanitize_text_field($args['notes']):null,'user_id'=>get_current_user_id(),'created_at'=>BC_RMS_DB::now()]);
+    }
+
+    public static function product_packaging_requirements($product_id,$quantity=1) {
+        global $wpdb;$ppt=BC_RMS_DB::table('product_packaging');$pt=BC_RMS_DB::table('packaging');
+        $rows=$wpdb->get_results($wpdb->prepare("SELECT pp.packaging_id,pp.quantity,p.name,p.track_inventory,p.unit_cost FROM $ppt pp JOIN $pt p ON p.id=pp.packaging_id WHERE pp.product_id=%d AND p.active=1",$product_id));
+        $out=[];foreach($rows as $r){if(!$r->track_inventory)continue;$out[]=['packaging_id'=>(int)$r->packaging_id,'name'=>$r->name,'required'=>(float)$r->quantity*max(1,(float)$quantity),'unit_cost'=>(float)$r->unit_cost];}return $out;
+    }
+
     public static function product_requirements($product_id,$quantity=1) {
         global $wpdb;
         $pt=BC_RMS_DB::table('products');$rt=BC_RMS_DB::table('recipes');
@@ -71,7 +88,13 @@ class BC_RMS_Inventory_Service {
             $max=$max===null?$possible:min($max,$possible);
             if($stock+0.0000001<$r['required']) $short[]=$r+['stock'=>$stock];
         }
-        return ['available'=>empty($short),'max_quantity'=>max(0,(int)$max),'shortages'=>$short];
+        foreach(self::product_packaging_requirements($product_id,1) as $r){
+            $stock=self::packaging_stock($r['packaging_id']);
+            $possible=$r['required']>0?(int)floor(($stock+0.0000001)/$r['required']):PHP_INT_MAX;
+            $max=$max===null?$possible:min($max,$possible);
+            if($stock+0.0000001<$r['required'])$short[]=['name'=>$r['name'],'required'=>$r['required'],'stock'=>$stock,'symbol'=>'pc'];
+        }
+        return ['available'=>empty($short),'max_quantity'=>$max===null?null:max(0,(int)$max),'shortages'=>$short];
     }
 
     public static function validate_cart_stock($items) {
@@ -89,6 +112,12 @@ class BC_RMS_Inventory_Service {
             $stock=self::stock($iid);
             if($stock+0.0000001<$required) $short[]=$meta[$iid]+['required'=>$required,'stock'=>$stock];
         }
+        $ptot=[];$pmeta=[];
+        foreach((array)$items as $raw){
+            $pid=absint($raw['product_id']??0);$qty=max(1,(float)($raw['quantity']??1));
+            foreach(self::product_packaging_requirements($pid,$qty) as $r){$id=$r['packaging_id'];if(!isset($ptot[$id])){$ptot[$id]=0;$pmeta[$id]=$r;}$ptot[$id]+=$r['required'];}
+        }
+        foreach($ptot as $id=>$required){$stock=self::packaging_stock($id);if($stock+0.0000001<$required)$short[]=['name'=>$pmeta[$id]['name'],'required'=>$required,'stock'=>$stock,'symbol'=>'pc'];}
         if($short){
             $parts=[];foreach($short as $r)$parts[]=sprintf('%s: need %s %s, available %s %s',$r['name'],number_format($r['required'],4),$r['symbol'],number_format($r['stock'],4),$r['symbol']);
             return new WP_Error('insufficient_stock','Insufficient inventory — '.implode('; ',$parts));
@@ -121,6 +150,10 @@ class BC_RMS_Inventory_Service {
                 ])) throw new Exception('Could not write inventory sale movement.');
             }
         }
+        $items=$wpdb->get_results($wpdb->prepare("SELECT product_id,quantity FROM $oit WHERE order_id=%d",$order_id));
+        foreach($items as $line)foreach(self::product_packaging_requirements($line->product_id,$line->quantity) as $r){
+            if(!self::add_packaging_movement($r['packaging_id'],'sale',-$r['required'],['unit_cost'=>$r['unit_cost'],'reference_type'=>'order','reference_id'=>$order_id,'reference_code'=>$o->order_number,'notes'=>'Automatic product packaging consumption'])) throw new Exception('Could not write packaging sale movement.');
+        }
         return true;
     }
 
@@ -134,6 +167,11 @@ class BC_RMS_Inventory_Service {
                 'unit_cost'=>$r->unit_cost,'reference_type'=>'order_void','reference_id'=>$order_id,
                 'reference_code'=>$o->order_number,'notes'=>'Automatic inventory reversal for voided order'
             ])) throw new Exception('Could not reverse inventory movement.');
+        }
+        $pmt=BC_RMS_DB::table('packaging_movements');
+        if(!(int)$wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM $pmt WHERE reference_type='order_void' AND reference_id=%d",$order_id))){
+            $prows=$wpdb->get_results($wpdb->prepare("SELECT packaging_id,quantity_delta,unit_cost FROM $pmt WHERE reference_type='order' AND reference_id=%d AND movement_type='sale'",$order_id));
+            foreach($prows as $r)if(!self::add_packaging_movement($r->packaging_id,'void_reversal',abs((float)$r->quantity_delta),['unit_cost'=>$r->unit_cost,'reference_type'=>'order_void','reference_id'=>$order_id,'reference_code'=>$o->order_number,'notes'=>'Automatic packaging reversal for voided order']))throw new Exception('Could not reverse packaging movement.');
         }
         return true;
     }
@@ -153,6 +191,15 @@ class BC_RMS_Inventory_Service {
             if(!self::add_movement($ingredient_id,'receipt',$base,['unit_cost'=>$unit_cost,'reference_type'=>'receipt','reference_id'=>$rid,'reference_code'=>$num,'notes'=>sanitize_text_field($data['reference_no']??'')])) throw new Exception('Could not write receipt movement.');
             $wpdb->query('COMMIT');return $rid;
         }catch(Exception $e){$wpdb->query('ROLLBACK');return new WP_Error('receipt_failed',$e->getMessage());}
+    }
+
+    public static function adjust_packaging($data) {
+        $id=absint($data['packaging_id']??0);$qty=abs((float)($data['quantity']??0));$kind=sanitize_key($data['movement_type']??'receipt');
+        if(!in_array($kind,['receipt','adjustment_in','adjustment_out','waste'],true))$kind='receipt';
+        if(!$id||$qty<=0)return new WP_Error('invalid_packaging_adjustment','Packaging and positive quantity are required.');
+        $delta=in_array($kind,['receipt','adjustment_in'],true)?$qty:-$qty;
+        if(!self::add_packaging_movement($id,$kind,$delta,['reference_type'=>'manual','reference_code'=>'PKG-'.current_time('Ymd-His'),'notes'=>sanitize_text_field($data['notes']??'')]))return new WP_Error('packaging_adjustment_failed','Could not save packaging movement.');
+        return true;
     }
 
     public static function adjust($data) {

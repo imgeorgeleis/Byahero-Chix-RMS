@@ -136,3 +136,8 @@ The first v0.7.0 release tracks recipe ingredients. Packaging remains part of pr
 ### v0.7.1 Stock Guard
 
 POS availability is calculated from current physical stock and recipe requirements. Reorder level remains a warning threshold; a sale is blocked when there is not enough actual stock to produce the requested quantity. Checkout performs a fresh aggregate server-side validation so stale POS screens, resumed held orders, and multiple products sharing an ingredient cannot push inventory below zero.
+
+
+## Packaging Inventory (v0.8.0)
+
+Assigned product packaging is now a physical inventory constraint alongside recipe ingredients. Packaging stock is ledger-based and supports receiving, adjustments, damaged/waste deductions, automatic POS consumption, and automatic void reversal. The POS limiting quantity is the lowest quantity supported by either recipe ingredients or assigned packaging.

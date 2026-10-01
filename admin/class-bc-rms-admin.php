@@ -33,6 +33,7 @@ class BC_RMS_Admin
         add_submenu_page('bc-rms', 'Inventory', 'Inventory', 'bc_view_inventory', 'bc-rms-inventory', [__CLASS__, 'inventory']);
         add_submenu_page('bc-rms', 'Receive Stock', 'Receive Stock', 'bc_manage_inventory', 'bc-rms-receive-stock', [__CLASS__, 'receive_stock']);
         add_submenu_page('bc-rms', 'Stock Movements', 'Stock Movements', 'bc_view_inventory', 'bc-rms-stock-movements', [__CLASS__, 'stock_movements']);
+        add_submenu_page('bc-rms', 'Packaging Stock', 'Packaging Stock', 'bc_view_inventory', 'bc-rms-packaging-stock', [__CLASS__, 'packaging_stock']);
         add_submenu_page('bc-rms', 'Products / Menu', 'Products / Menu', 'bc_manage_products', 'bc-rms-products', [__CLASS__, 'products']);
         add_submenu_page('bc-rms', 'Packaging', 'Packaging', 'bc_manage_packaging', 'bc-rms-packaging', [__CLASS__, 'packaging']);
         add_submenu_page('bc-rms', 'Variants', 'Variants', 'bc_manage_products', 'bc-rms-variants', [__CLASS__, 'variants']);
@@ -139,6 +140,12 @@ class BC_RMS_Admin
             $r=BC_RMS_Inventory_Service::receive($_POST);
             if(is_wp_error($r)) wp_die(esc_html($r->get_error_message()));
             self::go('bc-rms-receive-stock',['saved'=>1]);
+        }
+        if ($a === 'packaging_adjust') {
+            if(!current_user_can('bc_manage_inventory')) wp_die('Not allowed.');
+            $r=BC_RMS_Inventory_Service::adjust_packaging($_POST);
+            if(is_wp_error($r)) wp_die(esc_html($r->get_error_message()));
+            self::go('bc-rms-packaging-stock',['saved'=>1]);
         }
         if ($a === 'inventory_adjust') {
             if(!current_user_can('bc_manage_inventory')) wp_die('Not allowed.');
@@ -546,6 +553,17 @@ class BC_RMS_Admin
         echo '<div class="wrap bc-wrap"><h1>Stock Movements</h1><div class="bc-card bc-wide"><table class="widefat striped"><tr><th>Date</th><th>Ingredient</th><th>Type</th><th>Quantity</th><th>Reference</th><th>Notes</th><th>User</th></tr>';
         foreach($rows as $r){$u=get_userdata($r->user_id);echo '<tr><td>'.esc_html($r->created_at).'</td><td>'.esc_html($r->ingredient).'</td><td>'.esc_html(strtoupper(str_replace('_',' ',$r->movement_type))).'</td><td>'.($r->quantity_delta>0?'+':'').number_format($r->quantity_delta,4).' '.esc_html($r->symbol).'</td><td>'.esc_html($r->reference_code?:'—').'</td><td>'.esc_html($r->notes?:'—').'</td><td>'.esc_html($u?$u->display_name:'—').'</td></tr>';}
         echo '</table></div></div>';
+    }
+
+    public static function packaging_stock()
+    {
+        if(!current_user_can('bc_view_inventory')) wp_die('Not allowed.');
+        self::saved();global $wpdb;$pt=BC_RMS_DB::table('packaging');$mt=BC_RMS_DB::table('packaging_movements');
+        $rows=$wpdb->get_results("SELECT p.*,COALESCE(SUM(m.quantity_delta),0) stock FROM $pt p LEFT JOIN $mt m ON m.packaging_id=p.id WHERE p.active=1 GROUP BY p.id ORDER BY p.name");
+        echo '<div class="wrap bc-wrap"><h1>Packaging Stock</h1><div class="bc-card bc-wide"><table class="widefat striped"><tr><th>Packaging</th><th>Stock</th><th>Reorder</th><th>Status</th></tr>';
+        foreach($rows as $r){$low=$r->track_inventory && (float)$r->stock<=(float)$r->reorder_level;echo '<tr><td><strong>'.esc_html($r->name).'</strong></td><td>'.($r->track_inventory?number_format($r->stock,4).' pc':'Not tracked').'</td><td>'.number_format($r->reorder_level,4).' pc</td><td>'.(!$r->track_inventory?'—':($low?'<strong>LOW STOCK</strong>':'OK')).'</td></tr>';}
+        echo '</table></div><div class="bc-card" style="max-width:650px"><h2>Packaging Stock Movement</h2><form method="post">';wp_nonce_field('bc_rms_save');echo '<input type="hidden" name="bc_rms_action" value="packaging_adjust"><p><label><b>Packaging</b><br><select name="packaging_id" required><option value="">— Select —</option>';foreach($rows as $r)if($r->track_inventory)echo '<option value="'.absint($r->id).'">'.esc_html($r->name).'</option>';echo '</select></label></p><p><label><b>Movement</b><br><select name="movement_type"><option value="receipt">Receive Stock (+)</option><option value="adjustment_in">Adjustment In (+)</option><option value="adjustment_out">Adjustment Out (-)</option><option value="waste">Waste / Damaged (-)</option></select></label></p><p><label><b>Quantity (pieces)</b><br><input type="number" min="0.0001" step="0.0001" name="quantity" required></label></p><p><label><b>Notes / Reference</b><br><input class="regular-text" name="notes"></label></p>';submit_button('Save Packaging Movement');echo '</form></div><div class="bc-card bc-wide"><h2>Recent Packaging Movements</h2><table class="widefat striped"><tr><th>Date</th><th>Packaging</th><th>Type</th><th>Qty</th><th>Reference</th><th>Notes</th></tr>';
+        $mov=$wpdb->get_results("SELECT m.*,p.name FROM $mt m JOIN $pt p ON p.id=m.packaging_id ORDER BY m.id DESC LIMIT 200");foreach($mov as $m)echo '<tr><td>'.esc_html($m->created_at).'</td><td>'.esc_html($m->name).'</td><td>'.esc_html(strtoupper(str_replace('_',' ',$m->movement_type))).'</td><td>'.($m->quantity_delta>0?'+':'').number_format($m->quantity_delta,4).'</td><td>'.esc_html($m->reference_code?:'—').'</td><td>'.esc_html($m->notes?:'—').'</td></tr>';echo '</table></div></div>';
     }
 
     public static function pos()

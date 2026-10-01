@@ -2,7 +2,7 @@
 Contributors: georgeleis
 Tags: restaurant, pos, inventory, recipe, costing
 Requires at least: 6.4
-Stable tag: 0.7.1
+Stable tag: 0.8.0
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -104,3 +104,10 @@ For older releases, see CHANGELOG.md.
 * Added maximum sellable quantity.
 * Added server-side cart inventory validation.
 * Prevented POS sales from creating negative ingredient stock.
+
+
+= 0.8.0 =
+* Added packaging inventory ledger.
+* Added packaging stock receiving and adjustments.
+* Added automatic packaging deduction on POS sales and restoration on void.
+* POS availability now considers assigned packaging stock.
