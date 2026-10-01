@@ -33,6 +33,7 @@ class BC_RMS_Admin
         add_submenu_page('bc-rms', 'Orders', 'Orders', 'bc_view_orders', 'bc-rms-orders', [__CLASS__, 'orders']);
         add_submenu_page('bc-rms', 'Inventory', 'Inventory', 'bc_view_inventory', 'bc-rms-inventory', [__CLASS__, 'inventory']);
         add_submenu_page('bc-rms', 'Receive Stock', 'Receive Stock', 'bc_manage_inventory', 'bc-rms-receive-stock', [__CLASS__, 'receive_stock']);
+        add_submenu_page('bc-rms', 'Purchase Orders', 'Purchase Orders', 'bc_manage_inventory', 'bc-rms-purchase-orders', [__CLASS__, 'purchase_orders']);
         add_submenu_page('bc-rms', 'Stock Movements', 'Stock Movements', 'bc_view_inventory', 'bc-rms-stock-movements', [__CLASS__, 'stock_movements']);
         add_submenu_page('bc-rms', 'Packaging Stock', 'Packaging Stock', 'bc_view_inventory', 'bc-rms-packaging-stock', [__CLASS__, 'packaging_stock']);
         add_submenu_page('bc-rms', 'Products / Menu', 'Products / Menu', 'bc_manage_products', 'bc-rms-products', [__CLASS__, 'products']);
@@ -135,6 +136,21 @@ class BC_RMS_Admin
             $r=BC_RMS_POS_Service::void_order($id,$reason);
             if(is_wp_error($r)) wp_die(esc_html($r->get_error_message()));
             self::go('bc-rms-orders',['view'=>$id,'saved'=>1]);
+        }
+        if ($a === 'purchase_order_create') {
+            if(!current_user_can('bc_manage_inventory')) wp_die('Not allowed.');
+            $r=BC_RMS_Purchasing_Service::create($_POST);if(is_wp_error($r))wp_die(esc_html($r->get_error_message()));
+            self::go('bc-rms-purchase-orders',['view'=>$r,'saved'=>1]);
+        }
+        if ($a === 'purchase_order_status') {
+            if(!current_user_can('bc_manage_inventory')) wp_die('Not allowed.');
+            $id=absint($_POST['id']??0);$r=BC_RMS_Purchasing_Service::set_status($id,sanitize_key($_POST['status']??''));
+            if(is_wp_error($r))wp_die(esc_html($r->get_error_message()));self::go('bc-rms-purchase-orders',['view'=>$id,'saved'=>1]);
+        }
+        if ($a === 'purchase_order_receive') {
+            if(!current_user_can('bc_manage_inventory')) wp_die('Not allowed.');
+            $id=absint($_POST['id']??0);$r=BC_RMS_Purchasing_Service::receive($id,$_POST);
+            if(is_wp_error($r))wp_die(esc_html($r->get_error_message()));self::go('bc-rms-purchase-orders',['view'=>$id,'saved'=>1]);
         }
         if ($a === 'inventory_receive') {
             if(!current_user_can('bc_manage_inventory')) wp_die('Not allowed.');
@@ -538,6 +554,27 @@ class BC_RMS_Admin
         echo '</table></div><div class="bc-grid"><div class="bc-card"><h2>Manual Adjustment / Wastage</h2><form method="post">';wp_nonce_field('bc_rms_save');echo '<input type="hidden" name="bc_rms_action" value="inventory_adjust"><p><label><b>Ingredient</b><br><select name="ingredient_id" required><option value="">— Select —</option>';foreach($rows as $r)echo '<option value="'.absint($r->id).'">'.esc_html($r->name).'</option>';echo '</select></label></p><p><label><b>Movement</b><br><select name="movement_type"><option value="adjustment_in">Adjustment In (+)</option><option value="adjustment_out">Adjustment Out (-)</option><option value="waste">Waste / Spoilage (-)</option></select></label></p><p><label><b>Quantity</b><br><input type="number" min="0.0001" step="0.0001" name="quantity" required></label></p><p><label><b>Unit</b><br><select name="unit_id" required><option value="">— Select —</option>';foreach($units as $u)echo '<option value="'.absint($u->id).'">'.esc_html($u->name.' ('.$u->symbol.')').'</option>';echo '</select></label></p><p><label><b>Reason / Notes</b><br><input class="regular-text" name="notes" required></label></p>';submit_button('Save Movement');echo '</form></div><div class="bc-card"><h2>How stock works</h2><p>Stock is calculated from the inventory ledger. Receiving and positive adjustments add stock. Sales, wastage and negative adjustments subtract stock. Voiding a completed sale creates a reversal movement instead of deleting history.</p><p><a class="button" href="?page=bc-rms-receive-stock">Receive Stock</a> <a class="button" href="?page=bc-rms-stock-movements">View Ledger</a></p></div></div></div>';
     }
 
+    public static function purchase_orders()
+    {
+        if(!current_user_can('bc_manage_inventory'))wp_die('Not allowed.');
+        self::saved();global $wpdb;$pot=BC_RMS_DB::table('purchase_orders');$pit=BC_RMS_DB::table('purchase_order_items');$st=BC_RMS_DB::table('suppliers');$it=BC_RMS_DB::table('ingredients');$ut=BC_RMS_DB::table('units');
+        $view=absint($_GET['view']??0);
+        echo '<div class="wrap bc-wrap"><h1>Purchase Orders</h1>';
+        if($view){
+            $po=$wpdb->get_row($wpdb->prepare("SELECT po.*,s.name supplier FROM $pot po JOIN $st s ON s.id=po.supplier_id WHERE po.id=%d",$view));
+            $item=$po?$wpdb->get_row($wpdb->prepare("SELECT pi.*,i.name ingredient,u.name unit_name,u.symbol FROM $pit pi JOIN $it i ON i.id=pi.ingredient_id JOIN $ut u ON u.id=pi.purchase_unit_id WHERE pi.purchase_order_id=%d ORDER BY pi.id LIMIT 1",$view)):null;
+            if(!$po||!$item){echo '<div class="notice notice-error"><p>Purchase order not found.</p></div></div>';return;}
+            $remaining=max(0,(float)$item->ordered_quantity-(float)$item->received_quantity);
+            echo '<div class="bc-card"><h2>'.esc_html($po->po_number).'</h2><p><strong>'.esc_html(strtoupper(str_replace('_',' ',$po->status))).'</strong> · '.esc_html($po->supplier).' · Ordered '.esc_html($po->order_date).($po->expected_date?' · Expected '.esc_html($po->expected_date):'').'</p><table class="widefat striped"><tr><th>Ingredient</th><th>Ordered</th><th>Received</th><th>Remaining</th><th>Unit Price</th><th>Total</th></tr><tr><td>'.esc_html($item->ingredient).'</td><td>'.number_format($item->ordered_quantity,4).' '.esc_html($item->symbol).'</td><td>'.number_format($item->received_quantity,4).' '.esc_html($item->symbol).'</td><td>'.number_format($remaining,4).' '.esc_html($item->symbol).'</td><td>₱'.number_format($item->unit_price,2).'</td><td>₱'.number_format($item->line_total,2).'</td></tr></table>';
+            if(in_array($po->status,['draft','ordered'],true)){echo '<hr><form method="post" style="display:inline-block;margin-right:10px">';wp_nonce_field('bc_rms_save');echo '<input type="hidden" name="bc_rms_action" value="purchase_order_status"><input type="hidden" name="id" value="'.absint($po->id).'"><input type="hidden" name="status" value="'.($po->status==='draft'?'ordered':'cancelled').'">';submit_button($po->status==='draft'?'Mark as Ordered':'Cancel PO','secondary','submit',false);echo '</form>';}
+            if($remaining>0 && $po->status!=='cancelled'){echo '<hr><h3>Receive Against PO</h3><form method="post">';wp_nonce_field('bc_rms_save');echo '<input type="hidden" name="bc_rms_action" value="purchase_order_receive"><input type="hidden" name="id" value="'.absint($po->id).'"><p><label><b>Receipt Date</b><br><input type="date" name="receipt_date" value="'.esc_attr(current_time('Y-m-d')).'" required></label></p><p><label><b>Quantity to Receive</b><br><input type="number" name="receive_quantity" min="0.0001" max="'.esc_attr($remaining).'" step="0.0001" required> '.esc_html($item->symbol).'</label></p>';submit_button('Receive Stock');echo '</form>';}
+            echo '</div><p><a href="?page=bc-rms-purchase-orders">← Back to Purchase Orders</a></p></div>';return;
+        }
+        $suppliers=$wpdb->get_results("SELECT id,name FROM $st WHERE active=1 ORDER BY name");$ingredients=$wpdb->get_results("SELECT id,name FROM $it WHERE active=1 AND track_inventory=1 ORDER BY name");$units=$wpdb->get_results("SELECT id,name,symbol FROM $ut WHERE active=1 ORDER BY unit_type,name");
+        echo '<div class="bc-grid"><div class="bc-card"><h2>Create Purchase Order</h2><form method="post">';wp_nonce_field('bc_rms_save');echo '<input type="hidden" name="bc_rms_action" value="purchase_order_create"><p><label><b>Supplier</b><br><select name="supplier_id" required><option value="">— Select —</option>';foreach($suppliers as $x)echo '<option value="'.absint($x->id).'">'.esc_html($x->name).'</option>';echo '</select></label></p><p><label><b>Order Date</b><br><input type="date" name="order_date" value="'.esc_attr(current_time('Y-m-d')).'" required></label></p><p><label><b>Expected Date</b><br><input type="date" name="expected_date"></label></p><p><label><b>Ingredient</b><br><select name="ingredient_id" required><option value="">— Select —</option>';foreach($ingredients as $x)echo '<option value="'.absint($x->id).'">'.esc_html($x->name).'</option>';echo '</select></label></p><p><label><b>Purchase Unit</b><br><select name="purchase_unit_id" required><option value="">— Select —</option>';foreach($units as $u)echo '<option value="'.absint($u->id).'">'.esc_html($u->name.' ('.$u->symbol.')').'</option>';echo '</select></label></p><p><label><b>Order Quantity</b><br><input type="number" name="ordered_quantity" min="0.0001" step="0.0001" required></label></p><p><label><b>Unit Price</b><br><input type="number" name="unit_price" min="0" step="0.01" required></label></p><p><label><b>Supplier Reference</b><br><input class="regular-text" name="supplier_reference"></label></p><p><label><b>Notes</b><br><textarea class="large-text" rows="3" name="notes"></textarea></label></p>';submit_button('Create Draft PO');echo '</form></div><div class="bc-card"><h2>Purchase Order History</h2><table class="widefat striped"><tr><th>PO</th><th>Supplier</th><th>Date</th><th>Status</th><th>Total</th></tr>';
+        $rows=$wpdb->get_results("SELECT po.*,s.name supplier FROM $pot po JOIN $st s ON s.id=po.supplier_id ORDER BY po.id DESC LIMIT 200");foreach($rows as $x)echo '<tr><td><a href="?page=bc-rms-purchase-orders&view='.absint($x->id).'">'.esc_html($x->po_number).'</a></td><td>'.esc_html($x->supplier).'</td><td>'.esc_html($x->order_date).'</td><td>'.esc_html(strtoupper(str_replace('_',' ',$x->status))).'</td><td>₱'.number_format($x->subtotal,2).'</td></tr>';echo '</table></div></div></div>';
+    }
+
     public static function receive_stock()
     {
         if(!current_user_can('bc_manage_inventory')) wp_die('Not allowed.');
@@ -573,7 +610,7 @@ class BC_RMS_Admin
         $catalog=BC_RMS_POS_Service::catalog();
         wp_enqueue_script('bc-rms-pos',BC_RMS_URL.'assets/js/pos.js',[],BC_RMS_VERSION,true);
         wp_localize_script('bc-rms-pos','BCRMS_POS',['ajaxUrl'=>admin_url('admin-ajax.php'),'nonce'=>wp_create_nonce('bc_rms_pos'),'catalog'=>$catalog,'currency'=>'₱']);
-        echo '<div class="wrap bc-wrap bc-pos"><h1>Byahero Chix POS <small>v0.8.2</small></h1><div class="bc-pos-layout"><section><div class="bc-pos-toolbar"><input id="bc-pos-search" type="search" placeholder="Search menu..."><select id="bc-pos-category"><option value="">All Categories</option>';
+        echo '<div class="wrap bc-wrap bc-pos"><h1>Byahero Chix POS <small>v0.9.0</small></h1><div class="bc-pos-layout"><section><div class="bc-pos-toolbar"><input id="bc-pos-search" type="search" placeholder="Search menu..."><select id="bc-pos-category"><option value="">All Categories</option>';
         $cats=[];foreach($catalog as $x)if(!empty($x['category_name']))$cats[$x['category_name']]=1;foreach(array_keys($cats) as $c)echo '<option>'.esc_html($c).'</option>';
         echo '</select></div><div id="bc-pos-products" class="bc-pos-products"></div></section><aside class="bc-pos-cart"><h2>Current Order</h2><div class="bc-pos-order-type"><button type="button" data-type="dine_in" class="active">Dine-in</button><button type="button" data-type="takeout">Takeout</button></div><div id="bc-pos-cart-items"></div><div class="bc-pos-totals"><p><span>Subtotal</span><strong id="bc-pos-subtotal">₱0.00</strong></p><p><span>Discount</span><input id="bc-pos-discount" type="number" min="0" step="0.01" value="0"></p><p class="total"><span>Total</span><strong id="bc-pos-total">₱0.00</strong></p></div><label>Payment<select id="bc-pos-payment"><option value="cash">Cash</option><option value="gcash">GCash</option><option value="card">Card</option><option value="other">Other</option></select></label><label>Amount Tendered<input id="bc-pos-tendered" type="number" min="0" step="0.01"></label><div class="bc-pos-actions"><button id="bc-pos-hold" class="button button-large" type="button">Hold Order</button><button id="bc-pos-held" class="button button-large" type="button">Held Orders</button></div><button id="bc-pos-checkout" class="button button-primary button-hero">Complete Order</button><div id="bc-pos-message"></div></aside></div><div id="bc-pos-modal" class="bc-pos-modal" hidden><div class="bc-pos-modal-card"><button id="bc-pos-modal-close" type="button">×</button><div id="bc-pos-modal-body"></div></div></div></div>';
     }

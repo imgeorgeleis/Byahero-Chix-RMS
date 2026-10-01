@@ -2,7 +2,7 @@
 Contributors: georgeleis
 Tags: restaurant, pos, inventory, recipe, costing
 Requires at least: 6.4
-Stable tag: 0.8.2
+Stable tag: 0.9.0
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -122,3 +122,9 @@ For older releases, see CHANGELOG.md.
 * Refreshes all POS menu availability immediately after checkout.
 * Recalculates ingredient and packaging constraints without a page reload.
 * Automatically updates OUT OF STOCK states after completed sales.
+
+
+= 0.9.0 =
+* Added supplier purchase orders.
+* Added PO status lifecycle and partial receiving.
+* PO receipts automatically update ingredient inventory and ledger history.

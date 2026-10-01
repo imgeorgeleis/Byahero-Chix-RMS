@@ -151,3 +151,12 @@ Existing installations created the packaging table before inventory fields exist
 ### v0.8.2 Live POS Availability Refresh
 
 After a completed checkout, the POS requests a fresh catalog from the server and redraws all menu product availability. This recalculates limiting ingredient and packaging stock across the entire menu, so products that share resources update together without a manual browser refresh.
+
+
+## Purchasing & Purchase Orders (v0.9.0)
+
+The RMS now supports a purchasing lifecycle before inventory receiving. Purchase orders are linked to suppliers, tracked ingredients and purchase units, and move through draft, ordered, part-received, received or cancelled states.
+
+Receiving against a PO uses the existing Inventory Engine, so accepted quantities create inventory receipts and immutable stock ledger movements. Partial receipts are supported and the PO keeps ordered, received and remaining quantities.
+
+The first v0.9.0 implementation intentionally uses one ingredient line per PO to validate the purchasing workflow before expanding to multi-line purchase orders.

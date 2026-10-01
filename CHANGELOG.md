@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.9.0
+- Added Purchase Orders linked to existing suppliers, ingredients, and units.
+- Added draft, ordered, part-received, received, and cancelled PO lifecycle.
+- Added partial receiving against purchase orders.
+- PO receiving automatically creates normal inventory receipts and stock ledger movements.
+- Added ordered/received/remaining quantity tracking and PO history.
+- Added unique daily PO numbering.
+- This initial purchasing build supports one ingredient line per PO; multi-line POs are planned for a later refinement.
+
+
 ## 0.8.2
 - POS now refreshes the full menu catalog immediately after a successful checkout.
 - Available counts are recalculated from current ingredient and packaging inventory without requiring a page reload.
