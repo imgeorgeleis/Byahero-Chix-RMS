@@ -2,7 +2,7 @@
 Contributors: georgeleis
 Tags: restaurant, pos, inventory, recipe, costing
 Requires at least: 6.4
-Stable tag: 0.7.0
+Stable tag: 0.7.1
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -97,3 +97,10 @@ For older releases, see CHANGELOG.md.
 * Added automatic recipe consumption on completed POS sales.
 * Added automatic inventory reversal for voided orders.
 * Added low-stock status and stock movement audit history.
+
+
+= 0.7.1 =
+* Added recipe-based POS stock guards.
+* Added maximum sellable quantity.
+* Added server-side cart inventory validation.
+* Prevented POS sales from creating negative ingredient stock.

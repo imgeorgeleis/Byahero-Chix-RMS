@@ -40,6 +40,62 @@ class BC_RMS_Inventory_Service {
         ]);
     }
 
+    public static function product_requirements($product_id,$quantity=1) {
+        global $wpdb;
+        $pt=BC_RMS_DB::table('products');$rt=BC_RMS_DB::table('recipes');
+        $rit=BC_RMS_DB::table('recipe_items');$it=BC_RMS_DB::table('ingredients');$ut=BC_RMS_DB::table('units');
+        $p=$wpdb->get_row($wpdb->prepare("SELECT recipe_id FROM $pt WHERE id=%d",$product_id));
+        if(!$p||!$p->recipe_id) return [];
+        $recipe=$wpdb->get_row($wpdb->prepare("SELECT servings FROM $rt WHERE id=%d",$p->recipe_id));
+        if(!$recipe) return [];
+        $servings=max(0.0001,(float)$recipe->servings);$req=[];
+        $rows=$wpdb->get_results($wpdb->prepare("SELECT ri.*,i.name,i.track_inventory,u.symbol FROM $rit ri JOIN $it i ON i.id=ri.ingredient_id JOIN $ut u ON u.id=i.base_unit_id WHERE ri.recipe_id=%d",$p->recipe_id));
+        foreach($rows as $ri){
+            if(!$ri->track_inventory) continue;
+            $base=self::to_ingredient_base((int)$ri->ingredient_id,(float)$ri->quantity,(int)$ri->unit_id);
+            if(null===$base) continue;
+            $need=($base/$servings)*max(1,(float)$quantity);
+            if(!isset($req[$ri->ingredient_id])) $req[$ri->ingredient_id]=['ingredient_id'=>(int)$ri->ingredient_id,'name'=>$ri->name,'symbol'=>$ri->symbol,'required'=>0];
+            $req[$ri->ingredient_id]['required']+=$need;
+        }
+        return array_values($req);
+    }
+
+    public static function product_availability($product_id) {
+        $req=self::product_requirements($product_id,1);
+        if(!$req) return ['available'=>true,'max_quantity'=>null,'shortages'=>[]];
+        $max=null;$short=[];
+        foreach($req as $r){
+            $stock=self::stock($r['ingredient_id']);
+            $possible=$r['required']>0?(int)floor(($stock+0.0000001)/$r['required']):PHP_INT_MAX;
+            $max=$max===null?$possible:min($max,$possible);
+            if($stock+0.0000001<$r['required']) $short[]=$r+['stock'=>$stock];
+        }
+        return ['available'=>empty($short),'max_quantity'=>max(0,(int)$max),'shortages'=>$short];
+    }
+
+    public static function validate_cart_stock($items) {
+        $totals=[];$meta=[];
+        foreach((array)$items as $raw){
+            $pid=absint($raw['product_id']??0);$qty=max(1,(float)($raw['quantity']??1));
+            foreach(self::product_requirements($pid,$qty) as $r){
+                $iid=$r['ingredient_id'];
+                if(!isset($totals[$iid])){$totals[$iid]=0;$meta[$iid]=$r;}
+                $totals[$iid]+=$r['required'];
+            }
+        }
+        $short=[];
+        foreach($totals as $iid=>$required){
+            $stock=self::stock($iid);
+            if($stock+0.0000001<$required) $short[]=$meta[$iid]+['required'=>$required,'stock'=>$stock];
+        }
+        if($short){
+            $parts=[];foreach($short as $r)$parts[]=sprintf('%s: need %s %s, available %s %s',$r['name'],number_format($r['required'],4),$r['symbol'],number_format($r['stock'],4),$r['symbol']);
+            return new WP_Error('insufficient_stock','Insufficient inventory — '.implode('; ',$parts));
+        }
+        return true;
+    }
+
     public static function consume_order($order_id) {
         global $wpdb;
         $mt=BC_RMS_DB::table('inventory_movements');

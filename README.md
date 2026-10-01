@@ -131,3 +131,8 @@ Movement types include receipts, manual stock-in/out, wastage, automatic recipe 
 Recipe consumption converts each recipe item into the ingredient's configured base unit and divides recipe usage by the recipe serving yield before multiplying by the sold quantity. This keeps inventory quantities aligned with the existing Units and Recipe Builder architecture.
 
 The first v0.7.0 release tracks recipe ingredients. Packaging remains part of product costing but is not yet a stock-ledger item.
+
+
+### v0.7.1 Stock Guard
+
+POS availability is calculated from current physical stock and recipe requirements. Reorder level remains a warning threshold; a sale is blocked when there is not enough actual stock to produce the requested quantity. Checkout performs a fresh aggregate server-side validation so stale POS screens, resumed held orders, and multiple products sharing an ingredient cannot push inventory below zero.

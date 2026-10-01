@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.7.1
+- Added recipe-based POS stock availability checks.
+- Products that cannot produce one serving are disabled in POS.
+- Added maximum sellable quantity based on the limiting recipe ingredient.
+- Added authoritative server-side aggregate cart stock validation before checkout.
+- Prevents negative ingredient inventory from POS transactions.
+- Held orders do not reserve stock and are revalidated when completed.
+- No database schema changes.
+
+
 ## 0.7.0
 - Added ledger-based ingredient inventory engine.
 - Added stock-on-hand derived from immutable inventory movements.

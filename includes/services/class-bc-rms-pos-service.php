@@ -19,6 +19,10 @@ class BC_RMS_POS_Service {
         $products=$wpdb->get_results("SELECT p.*,c.name category_name FROM $pt p LEFT JOIN $ct c ON c.id=p.category_id WHERE p.active=1 AND p.pos_enabled=1 ORDER BY c.sort_order,p.sort_order,p.name",ARRAY_A);
         foreach($products as &$p){
             $p['base_cost']=(float)(BC_RMS_Product_Service::summary((int)$p['id'])['base_cost']??0);
+            $availability=BC_RMS_Inventory_Service::product_availability((int)$p['id']);
+            $p['in_stock']=$availability['available'];
+            $p['max_quantity']=$availability['max_quantity'];
+            $p['stock_shortages']=$availability['shortages'];
             $p['variants']=$wpdb->get_results($wpdb->prepare("SELECT id,name,sku,price_adjustment,cost_adjustment,default_variant FROM $vt WHERE product_id=%d AND active=1 ORDER BY sort_order,name",$p['id']),ARRAY_A);
             $groups=$wpdb->get_results($wpdb->prepare("SELECT g.* FROM $pgt pg JOIN $gt g ON g.id=pg.group_id WHERE pg.product_id=%d AND g.active=1 ORDER BY g.sort_order,g.name",$p['id']),ARRAY_A);
             foreach($groups as &$g){
@@ -138,6 +142,9 @@ class BC_RMS_POS_Service {
         if($method==='cash' && $tender<$total) return new WP_Error('insufficient_cash','Amount tendered is less than the order total.');
         if($method!=='cash') $tender=$total;
         $change=max(0,$tender-$total);
+
+        $stock_check=BC_RMS_Inventory_Service::validate_cart_stock($items);
+        if(is_wp_error($stock_check)) return $stock_check;
 
         $wpdb->query('START TRANSACTION');
         try{
