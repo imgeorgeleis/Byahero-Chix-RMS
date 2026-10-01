@@ -141,3 +141,8 @@ POS availability is calculated from current physical stock and recipe requiremen
 ## Packaging Inventory (v0.8.0)
 
 Assigned product packaging is now a physical inventory constraint alongside recipe ingredients. Packaging stock is ledger-based and supports receiving, adjustments, damaged/waste deductions, automatic POS consumption, and automatic void reversal. The POS limiting quantity is the lowest quantity supported by either recipe ingredients or assigned packaging.
+
+
+### v0.8.1 Packaging Migration Fix
+
+Existing installations created the packaging table before inventory fields existed. This patch explicitly checks the live table and adds missing `track_inventory` and `reorder_level` columns, then keeps the Packaging Stock UI safe if a database host delays the schema alteration.

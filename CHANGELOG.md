@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.8.1
+- Fixed Packaging Stock warnings on upgraded installations where the existing packaging table was missing the new inventory columns.
+- Added an explicit migration for `track_inventory` and `reorder_level` instead of relying only on dbDelta.
+- Added backwards-safe Packaging Stock rendering while migration completes.
+- Added a compatibility fallback for packaging POS availability.
+- No data is deleted; existing packaging records are retained and default to inventory tracking enabled.
+
+
 ## 0.8.0
 - Added physical packaging inventory ledger.
 - Added packaging stock receiving, adjustments, waste/damage, and audit history.

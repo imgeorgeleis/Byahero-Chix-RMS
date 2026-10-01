@@ -4,7 +4,20 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
 class BC_RMS_Installer {
     public static function activate(){ self::install(); self::roles(); }
     public static function maybe_upgrade(){ if(version_compare((string)get_option('bc_rms_db_version','0.0.0'),BC_RMS_DB_VERSION,'<')) { self::install(); self::roles(); } }
-    private static function install(){ self::tables(); self::seed(); update_option('bc_rms_db_version',BC_RMS_DB_VERSION); }
+    private static function install(){ self::tables(); self::migrate_packaging_inventory_columns(); self::seed(); update_option('bc_rms_db_version',BC_RMS_DB_VERSION); }
+    private static function migrate_packaging_inventory_columns(){
+        global $wpdb;
+        $table=BC_RMS_DB::table('packaging');
+        $exists=$wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s",$table));
+        if($exists!==$table) return;
+        $track=$wpdb->get_var("SHOW COLUMNS FROM `$table` LIKE 'track_inventory'");
+        if(!$track) $wpdb->query("ALTER TABLE `$table` ADD COLUMN track_inventory TINYINT(1) NOT NULL DEFAULT 1 AFTER unit_cost");
+        $reorder=$wpdb->get_var("SHOW COLUMNS FROM `$table` LIKE 'reorder_level'");
+        if(!$reorder) $wpdb->query("ALTER TABLE `$table` ADD COLUMN reorder_level DECIMAL(14,4) NOT NULL DEFAULT 0 AFTER track_inventory");
+        $idx=$wpdb->get_var("SHOW INDEX FROM `$table` WHERE Key_name='track_inventory'");
+        if(!$idx) $wpdb->query("ALTER TABLE `$table` ADD KEY track_inventory (track_inventory)");
+    }
+
     private static function tables(){
         global $wpdb; require_once ABSPATH.'wp-admin/includes/upgrade.php'; $c=$wpdb->get_charset_collate(); $t=fn($n)=>BC_RMS_DB::table($n); $sql=[];
         $sql[]="CREATE TABLE {$t('units')} (id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,uuid CHAR(36) NOT NULL,name VARCHAR(50) NOT NULL,symbol VARCHAR(20) NOT NULL,unit_type VARCHAR(30) NOT NULL,factor_to_base DECIMAL(18,8) NOT NULL DEFAULT 1,is_base TINYINT(1) NOT NULL DEFAULT 0,active TINYINT(1) NOT NULL DEFAULT 1,created_at DATETIME NOT NULL,updated_at DATETIME NOT NULL,PRIMARY KEY (id),UNIQUE KEY uuid (uuid),UNIQUE KEY name (name),KEY unit_type (unit_type)) $c;";

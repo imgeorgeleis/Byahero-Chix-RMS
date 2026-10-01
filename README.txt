@@ -2,7 +2,7 @@
 Contributors: georgeleis
 Tags: restaurant, pos, inventory, recipe, costing
 Requires at least: 6.4
-Stable tag: 0.8.0
+Stable tag: 0.8.1
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -111,3 +111,8 @@ For older releases, see CHANGELOG.md.
 * Added packaging stock receiving and adjustments.
 * Added automatic packaging deduction on POS sales and restoration on void.
 * POS availability now considers assigned packaging stock.
+
+
+= 0.8.1 =
+* Fixed missing packaging inventory columns on upgraded installations.
+* Added explicit packaging schema migration and compatibility fallbacks.

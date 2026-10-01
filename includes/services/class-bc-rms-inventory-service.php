@@ -53,7 +53,9 @@ class BC_RMS_Inventory_Service {
 
     public static function product_packaging_requirements($product_id,$quantity=1) {
         global $wpdb;$ppt=BC_RMS_DB::table('product_packaging');$pt=BC_RMS_DB::table('packaging');
-        $rows=$wpdb->get_results($wpdb->prepare("SELECT pp.packaging_id,pp.quantity,p.name,p.track_inventory,p.unit_cost FROM $ppt pp JOIN $pt p ON p.id=pp.packaging_id WHERE pp.product_id=%d AND p.active=1",$product_id));
+        $has_track=(bool)$wpdb->get_var("SHOW COLUMNS FROM `$pt` LIKE 'track_inventory'");
+        $track_sql=$has_track?'p.track_inventory':'1 AS track_inventory';
+        $rows=$wpdb->get_results($wpdb->prepare("SELECT pp.packaging_id,pp.quantity,p.name,$track_sql,p.unit_cost FROM $ppt pp JOIN $pt p ON p.id=pp.packaging_id WHERE pp.product_id=%d AND p.active=1",$product_id));
         $out=[];foreach($rows as $r){if(!$r->track_inventory)continue;$out[]=['packaging_id'=>(int)$r->packaging_id,'name'=>$r->name,'required'=>(float)$r->quantity*max(1,(float)$quantity),'unit_cost'=>(float)$r->unit_cost];}return $out;
     }
 
