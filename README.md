@@ -167,3 +167,8 @@ The first v0.9.0 implementation intentionally uses one ingredient line per PO to
 A supplier purchase order can now contain multiple ingredient lines. Each line tracks purchase unit, ordered quantity, received quantity, remaining quantity, unit price and line total. The PO form calculates estimated totals live.
 
 Receiving is line-specific and supports mixed partial deliveries. A delivery can receive all of one ingredient, part of another, and none of the remaining lines. Inventory receipts and immutable stock movements are created only for quantities actually received.
+
+
+### v0.10.1 Mixed Ingredient + Packaging POs
+
+A single supplier PO may now contain both ingredient lines and packaging lines. Ingredient lines retain unit conversion and ingredient inventory receiving. Packaging lines are ordered and received in pieces and post to the packaging movement ledger. This supports suppliers that deliver food ingredients and disposable packaging on the same invoice or delivery.

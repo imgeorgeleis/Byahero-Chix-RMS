@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.10.1
+- Purchase Orders can now mix tracked ingredients and tracked packaging from the same supplier.
+- Added resource type and packaging linkage to PO lines while preserving existing ingredient PO lines.
+- Packaging PO lines use piece quantities and do not require an ingredient unit.
+- Receiving packaging from a PO posts directly to the packaging inventory ledger.
+- Mixed partial receiving supports ingredient and packaging lines together.
+- Existing v0.9.0/v0.10.0 purchase orders remain ingredient lines after migration.
+
+
 ## 0.10.0
 - Upgraded Purchase Orders from one ingredient to multiple ingredient lines.
 - Added dynamic Add Ingredient / Remove Line PO editor.
