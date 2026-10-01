@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.10.2
+- Fixed Supplier Add/Edit warnings caused by optional `address` and `notes` fields not being present in submitted forms.
+- Added safe defaults for all optional supplier POST fields.
+- Added Address and Notes fields to the Supplier Add/Edit form because both fields already exist in the supplier schema.
+- Prevented PHP warnings from sending output before the WordPress redirect, fixing the resulting `Cannot modify header information` warning.
+- Added supplier-name validation.
+- No database schema changes.
+
+
 ## 0.10.1
 - Purchase Orders can now mix tracked ingredients and tracked packaging from the same supplier.
 - Added resource type and packaging linkage to PO lines while preserving existing ingredient PO lines.

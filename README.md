@@ -172,3 +172,8 @@ Receiving is line-specific and supports mixed partial deliveries. A delivery can
 ### v0.10.1 Mixed Ingredient + Packaging POs
 
 A single supplier PO may now contain both ingredient lines and packaging lines. Ingredient lines retain unit conversion and ingredient inventory receiving. Packaging lines are ordered and received in pieces and post to the packaging movement ledger. This supports suppliers that deliver food ingredients and disposable packaging on the same invoice or delivery.
+
+
+### v0.10.2 Supplier Form Fix
+
+Supplier Add/Edit now treats optional fields safely and exposes the existing Address and Notes database fields in the admin form. This prevents undefined-array warnings from breaking the post-save WordPress redirect.
