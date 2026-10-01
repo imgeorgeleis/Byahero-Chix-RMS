@@ -82,8 +82,12 @@ class BC_RMS_POS_Service {
         global $wpdb;$ot=BC_RMS_DB::table('orders');$o=$wpdb->get_row($wpdb->prepare("SELECT * FROM $ot WHERE id=%d",$id));
         if(!$o||$o->status!=='completed') return new WP_Error('invalid_order','Only completed orders can be voided.');
         $note=trim((string)$o->notes);$reason=sanitize_text_field($reason);$note.=($note?"\n":'').'VOID: '.($reason?:'No reason supplied').' | '.current_time('mysql').' | User '.get_current_user_id();
-        $wpdb->update($ot,['status'=>'voided','notes'=>$note,'updated_at'=>current_time('mysql')],['id'=>$id]);
-        return true;
+        $wpdb->query('START TRANSACTION');
+        try{
+            BC_RMS_Inventory_Service::reverse_order($id);
+            if(false===$wpdb->update($ot,['status'=>'voided','notes'=>$note,'updated_at'=>current_time('mysql')],['id'=>$id])) throw new Exception($wpdb->last_error?:'Could not void order.');
+            $wpdb->query('COMMIT');return true;
+        }catch(Exception $e){$wpdb->query('ROLLBACK');return new WP_Error('void_failed',$e->getMessage());}
     }
 
     public static function create_order($payload) {
@@ -159,6 +163,7 @@ class BC_RMS_POS_Service {
                 $oi=(int)$wpdb->insert_id;
                 foreach($x['mods'] as $m) if(!$wpdb->insert($omt,['uuid'=>BC_RMS_DB::uuid(),'order_item_id'=>$oi,'modifier_id'=>$m->id,'modifier_name'=>$m->name,'price_adjustment'=>$m->price_adjustment,'cost_adjustment'=>$m->cost_adjustment,'created_at'=>$now])) throw new Exception($wpdb->last_error?:'Could not save modifier.');
             }
+            BC_RMS_Inventory_Service::consume_order($oid);
             $wpdb->query('COMMIT');
             return ['id'=>$oid,'order_number'=>$order_number,'total'=>$total,'change'=>$change];
         }catch(Exception $e){

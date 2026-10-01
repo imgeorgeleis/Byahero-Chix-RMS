@@ -2,7 +2,7 @@
 Contributors: georgeleis
 Tags: restaurant, pos, inventory, recipe, costing
 Requires at least: 6.4
-Stable tag: 0.6.2
+Stable tag: 0.7.0
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -89,3 +89,11 @@ For older releases, see CHANGELOG.md.
 * Fixed completed-order voiding.
 * Fixed duplicate order numbers after multiple hold/resume transactions.
 * Improved order-number uniqueness handling.
+
+
+= 0.7.0 =
+* Added ingredient inventory ledger and stock-on-hand.
+* Added receiving, adjustments, and wastage.
+* Added automatic recipe consumption on completed POS sales.
+* Added automatic inventory reversal for voided orders.
+* Added low-stock status and stock movement audit history.

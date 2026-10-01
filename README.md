@@ -120,3 +120,14 @@ Cashiers can hold an in-progress order, browse held orders and resume one later.
 ### v0.6.2 POS Reliability Patch
 
 This patch fixes completed-order void routing and duplicate daily order numbers. The order sequence no longer depends on the number of rows created today, because held orders can be removed after resume. It instead advances from the highest existing `BC-YYYYMMDD-NNNN` number and verifies uniqueness before insert.
+
+
+## Inventory Engine (v0.7.0)
+
+Inventory is ledger-based. Ingredient stock-on-hand is the sum of inventory movement deltas rather than a mutable stock field.
+
+Movement types include receipts, manual stock-in/out, wastage, automatic recipe consumption from completed POS orders, and automatic reversal when a completed order is voided. Held orders do not consume inventory.
+
+Recipe consumption converts each recipe item into the ingredient's configured base unit and divides recipe usage by the recipe serving yield before multiplying by the sold quantity. This keeps inventory quantities aligned with the existing Units and Recipe Builder architecture.
+
+The first v0.7.0 release tracks recipe ingredients. Packaging remains part of product costing but is not yet a stock-ledger item.

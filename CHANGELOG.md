@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.7.0
+- Added ledger-based ingredient inventory engine.
+- Added stock-on-hand derived from immutable inventory movements.
+- Added stock receiving with supplier/reference/date and purchase-cost capture.
+- Added manual stock-in, stock-out, and wastage/spoilage adjustments.
+- Added automatic recipe ingredient consumption when a POS order is completed.
+- Added automatic inventory reversal when a completed order is voided.
+- Added low-stock status using ingredient reorder levels.
+- Added Stock Movements audit ledger.
+- Added inventory capabilities for managers/administrators.
+- Held orders do not affect inventory until checkout is completed.
+
+
 ## 0.6.2
 - Fixed Void Order: v0.6.1 displayed the form and had the service method, but the admin save router did not handle `void_order`.
 - Fixed duplicate `BC-YYYYMMDD-NNNN` order numbers after hold/resume workflows.
