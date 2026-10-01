@@ -2,7 +2,7 @@
 Contributors: georgeleis
 Tags: restaurant, pos, inventory, recipe, costing
 Requires at least: 6.4
-Stable tag: 0.9.0
+Stable tag: 0.10.0
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -128,3 +128,9 @@ For older releases, see CHANGELOG.md.
 * Added supplier purchase orders.
 * Added PO status lifecycle and partial receiving.
 * PO receipts automatically update ingredient inventory and ledger history.
+
+
+= 0.10.0 =
+* Added multi-line supplier purchase orders.
+* Added live PO totals and dynamic ingredient lines.
+* Added per-line partial receiving and remaining-quantity tracking.

@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.10.0
+- Upgraded Purchase Orders from one ingredient to multiple ingredient lines.
+- Added dynamic Add Ingredient / Remove Line PO editor.
+- Added live estimated PO line totals and grand total.
+- Added per-line ordered, received, and remaining quantities.
+- Added multi-line partial receiving: selected quantities can be received independently.
+- PO becomes PART RECEIVED while any lines remain and RECEIVED only when all lines are complete.
+- Each received line continues to create inventory receipt and stock-ledger entries through the existing Inventory Engine.
+- Existing v0.9.0 purchase orders remain compatible.
+
+
 ## 0.9.0
 - Added Purchase Orders linked to existing suppliers, ingredients, and units.
 - Added draft, ordered, part-received, received, and cancelled PO lifecycle.

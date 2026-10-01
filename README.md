@@ -160,3 +160,10 @@ The RMS now supports a purchasing lifecycle before inventory receiving. Purchase
 Receiving against a PO uses the existing Inventory Engine, so accepted quantities create inventory receipts and immutable stock ledger movements. Partial receipts are supported and the PO keeps ordered, received and remaining quantities.
 
 The first v0.9.0 implementation intentionally uses one ingredient line per PO to validate the purchasing workflow before expanding to multi-line purchase orders.
+
+
+## Multi-line Purchasing (v0.10.0)
+
+A supplier purchase order can now contain multiple ingredient lines. Each line tracks purchase unit, ordered quantity, received quantity, remaining quantity, unit price and line total. The PO form calculates estimated totals live.
+
+Receiving is line-specific and supports mixed partial deliveries. A delivery can receive all of one ingredient, part of another, and none of the remaining lines. Inventory receipts and immutable stock movements are created only for quantities actually received.
