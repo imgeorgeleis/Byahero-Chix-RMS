@@ -2,7 +2,7 @@
 Contributors: georgeleis
 Tags: restaurant, pos, inventory, recipe, costing
 Requires at least: 6.4
-Stable tag: 0.11.0
+Stable tag: 0.11.1
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -153,3 +153,9 @@ For older releases, see CHANGELOG.md.
 * Added packaging pack-to-piece costing.
 * Added preferred suppliers and price history.
 * Purchase Orders now filter items and pricing by selected supplier.
+
+
+= 0.11.1 =
+* Sync actual PO receipt prices to ingredient recipe costing.
+* Sync packaging PO receipt cost to packaging unit cost.
+* Record PO-sourced supplier price history.

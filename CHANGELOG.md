@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.11.1
+- Receiving a Purchase Order now synchronizes actual received pricing back to costing.
+- Ingredient PO receiving updates the matching supplier catalog price, so live recipe costs use the latest received supplier price.
+- Packaging PO receiving updates `packaging.unit_cost`, so product packaging cost updates immediately.
+- PO receipts create supplier price-history snapshots with source `purchase_order`.
+- Packaging pack prices are reconstructed from received per-piece cost and configured pack size.
+- No database schema changes.
+
+
 ## 0.11.0
 - Added Supplier Catalog support for both ingredients and packaging.
 - Added packaging purchase pack size / units-per-purchase conversion.

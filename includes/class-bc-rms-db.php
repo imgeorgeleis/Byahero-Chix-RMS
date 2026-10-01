@@ -12,7 +12,7 @@ class BC_RMS_DB {
     }
     public static function preferred_cost( $ingredient_id ) {
         global $wpdb; $si=self::table('supplier_items'); $u=self::table('units');
-        $r=$wpdb->get_row($wpdb->prepare("SELECT s.*,u.factor_to_base FROM $si s JOIN $u u ON u.id=s.purchase_unit_id WHERE s.ingredient_id=%d AND s.active=1 ORDER BY s.preferred DESC,s.id DESC LIMIT 1",$ingredient_id));
+        $r=$wpdb->get_row($wpdb->prepare("SELECT s.*,u.factor_to_base FROM $si s JOIN $u u ON u.id=s.purchase_unit_id WHERE s.resource_type='ingredient' AND s.ingredient_id=%d AND s.active=1 ORDER BY s.preferred DESC,s.id DESC LIMIT 1",$ingredient_id));
         if(!$r || (float)$r->purchase_qty<=0 || (float)$r->factor_to_base<=0) return null;
         return (float)$r->purchase_price / ((float)$r->purchase_qty*(float)$r->factor_to_base);
     }

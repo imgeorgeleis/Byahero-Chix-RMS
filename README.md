@@ -184,3 +184,8 @@ Supplier Add/Edit now treats optional fields safely and exposes the existing Add
 Supplier Pricing is now a mixed Supplier Catalog for ingredients and packaging. Packaging can be purchased in packs/bundles/cases while inventory remains piece-based. For example, one Food Box pack at ₱190 containing 25 pieces calculates to ₱7.60 per piece.
 
 Each item may have multiple supplier catalog records. One supplier can be explicitly marked Preferred; the system does not automatically choose the cheapest supplier. Purchase Orders filter their item selector to the selected supplier's active catalog and mark preferred entries. Supplier catalog saves also create price-history snapshots.
+
+
+### v0.11.1 Received Cost Synchronization
+
+Actual Purchase Order receiving now feeds the costing engine. Ingredient receipt prices update the supplier catalog used by live recipe costing. Packaging receipt prices update the packaging master unit cost used by product costing. Each synchronization also records a Purchase Order price-history snapshot.

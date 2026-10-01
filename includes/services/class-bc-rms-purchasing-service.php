@@ -44,6 +44,34 @@ class BC_RMS_Purchasing_Service {
         if(in_array($current,['received','part_received'],true))return new WP_Error('locked_po','Received purchase orders cannot be changed to this status.');
         $wpdb->update($t,['status'=>$status,'updated_at'=>BC_RMS_DB::now()],['id'=>$id]);return true;
     }
+    private static function sync_received_cost($po,$item){
+        global $wpdb;
+        $sit=BC_RMS_DB::table('supplier_items');$hist=BC_RMS_DB::table('supplier_price_history');
+        $now=BC_RMS_DB::now();$type=($item->resource_type??'ingredient')==='packaging'?'packaging':'ingredient';
+
+        if($type==='packaging'){
+            $pt=BC_RMS_DB::table('packaging');$unit_cost=max(0,(float)$item->unit_price);
+            $wpdb->update($pt,['unit_cost'=>$unit_cost,'updated_at'=>$now],['id'=>(int)$item->packaging_id]);
+            $catalog=$wpdb->get_row($wpdb->prepare("SELECT * FROM $sit WHERE supplier_id=%d AND resource_type='packaging' AND packaging_id=%d AND active=1 ORDER BY preferred DESC,id DESC LIMIT 1",$po->supplier_id,$item->packaging_id));
+            if($catalog){
+                $pack=max(0.0001,(float)$catalog->units_per_purchase);
+                $purchase_price=$unit_cost*$pack;
+                $wpdb->update($sit,['purchase_price'=>$purchase_price,'updated_at'=>$now],['id'=>(int)$catalog->id]);
+                $wpdb->insert($hist,['uuid'=>BC_RMS_DB::uuid(),'supplier_item_id'=>(int)$catalog->id,'supplier_id'=>(int)$po->supplier_id,'resource_type'=>'packaging','ingredient_id'=>null,'packaging_id'=>(int)$item->packaging_id,'purchase_qty'=>(float)$catalog->purchase_qty,'units_per_purchase'=>$pack,'purchase_price'=>$purchase_price,'unit_cost'=>$unit_cost,'source'=>'purchase_order','reference_code'=>$po->po_number,'created_at'=>$now]);
+            }
+            return;
+        }
+
+        $catalog=$wpdb->get_row($wpdb->prepare("SELECT * FROM $sit WHERE supplier_id=%d AND resource_type='ingredient' AND ingredient_id=%d AND active=1 ORDER BY preferred DESC,id DESC LIMIT 1",$po->supplier_id,$item->ingredient_id));
+        if($catalog){
+            $purchase_price=max(0,(float)$item->unit_price);
+            $base=BC_RMS_Inventory_Service::to_ingredient_base((int)$item->ingredient_id,1,(int)$item->purchase_unit_id);
+            $unit_cost=($base&&$base>0)?$purchase_price/$base:0;
+            $wpdb->update($sit,['purchase_unit_id'=>(int)$item->purchase_unit_id,'purchase_qty'=>1,'purchase_price'=>$purchase_price,'updated_at'=>$now],['id'=>(int)$catalog->id]);
+            $wpdb->insert($hist,['uuid'=>BC_RMS_DB::uuid(),'supplier_item_id'=>(int)$catalog->id,'supplier_id'=>(int)$po->supplier_id,'resource_type'=>'ingredient','ingredient_id'=>(int)$item->ingredient_id,'packaging_id'=>null,'purchase_qty'=>1,'units_per_purchase'=>1,'purchase_price'=>$purchase_price,'unit_cost'=>$unit_cost,'source'=>'purchase_order','reference_code'=>$po->po_number,'created_at'=>$now]);
+        }
+    }
+
     public static function receive($id,$data){
         global $wpdb;$pot=BC_RMS_DB::table('purchase_orders');$pit=BC_RMS_DB::table('purchase_order_items');$pt=BC_RMS_DB::table('packaging');
         $po=$wpdb->get_row($wpdb->prepare("SELECT * FROM $pot WHERE id=%d",$id));if(!$po||$po->status==='cancelled')return new WP_Error('invalid_po','Purchase order cannot be received.');
@@ -60,6 +88,7 @@ class BC_RMS_Purchasing_Service {
                 $result=BC_RMS_Inventory_Service::receive(['ingredient_id'=>$item->ingredient_id,'quantity'=>$qty,'unit_id'=>$item->purchase_unit_id,'purchase_price'=>$qty*(float)$item->unit_price,'supplier_id'=>$po->supplier_id,'reference_no'=>$po->po_number,'receipt_date'=>sanitize_text_field($data['receipt_date']??current_time('Y-m-d')),'notes'=>'Received against '.$po->po_number]);
                 if(is_wp_error($result))return $result;
             }
+            self::sync_received_cost($po,$item);
             $wpdb->update($pit,['received_quantity'=>(float)$item->received_quantity+$qty,'updated_at'=>BC_RMS_DB::now()],['id'=>$item->id]);$received_any=true;
         }
         if(!$received_any)return new WP_Error('nothing_received','Enter a receive quantity for at least one line.');
