@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.11.0
+- Added Supplier Catalog support for both ingredients and packaging.
+- Added packaging purchase pack size / units-per-purchase conversion.
+- Packaging catalog now calculates per-piece cost automatically (e.g. ₱190 / 25 pcs = ₱7.60/pc).
+- Added preferred supplier per ingredient or packaging item.
+- Added supplier price history snapshots.
+- Purchase Order item lists are now filtered by the selected supplier catalog.
+- Preferred supplier items are visibly marked in PO selection.
+- PO pricing auto-fills from supplier catalog; packaging is converted to per-piece PO cost while inventory remains piece-based.
+- Existing ingredient Supplier Pricing records migrate as ingredient catalog entries.
+
+
 ## 0.10.2
 - Fixed Supplier Add/Edit warnings caused by optional `address` and `notes` fields not being present in submitted forms.
 - Added safe defaults for all optional supplier POST fields.

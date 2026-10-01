@@ -2,7 +2,7 @@
 Contributors: georgeleis
 Tags: restaurant, pos, inventory, recipe, costing
 Requires at least: 6.4
-Stable tag: 0.10.2
+Stable tag: 0.11.0
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -146,3 +146,10 @@ For older releases, see CHANGELOG.md.
 * Fixed Supplier Add/Edit undefined-array warnings.
 * Added Address and Notes to the supplier form.
 * Fixed post-save redirect warnings caused by PHP output before headers.
+
+
+= 0.11.0 =
+* Added supplier catalogs for ingredients and packaging.
+* Added packaging pack-to-piece costing.
+* Added preferred suppliers and price history.
+* Purchase Orders now filter items and pricing by selected supplier.
