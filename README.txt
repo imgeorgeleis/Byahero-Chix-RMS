@@ -2,7 +2,7 @@
 Contributors: georgeleis
 Tags: restaurant, pos, inventory, recipe, costing
 Requires at least: 6.4
-Stable tag: 0.8.1
+Stable tag: 0.8.2
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -116,3 +116,9 @@ For older releases, see CHANGELOG.md.
 = 0.8.1 =
 * Fixed missing packaging inventory columns on upgraded installations.
 * Added explicit packaging schema migration and compatibility fallbacks.
+
+
+= 0.8.2 =
+* Refreshes all POS menu availability immediately after checkout.
+* Recalculates ingredient and packaging constraints without a page reload.
+* Automatically updates OUT OF STOCK states after completed sales.

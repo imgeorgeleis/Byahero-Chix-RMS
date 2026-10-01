@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.8.2
+- POS now refreshes the full menu catalog immediately after a successful checkout.
+- Available counts are recalculated from current ingredient and packaging inventory without requiring a page reload.
+- Products automatically switch to OUT OF STOCK when the completed sale consumes the last producible stock.
+- Shared ingredients and packaging update availability across all affected menu products.
+- No database schema changes.
+
+
 ## 0.8.1
 - Fixed Packaging Stock warnings on upgraded installations where the existing packaging table was missing the new inventory columns.
 - Added an explicit migration for `track_inventory` and `reorder_level` instead of relying only on dbDelta.

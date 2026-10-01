@@ -146,3 +146,8 @@ Assigned product packaging is now a physical inventory constraint alongside reci
 ### v0.8.1 Packaging Migration Fix
 
 Existing installations created the packaging table before inventory fields existed. This patch explicitly checks the live table and adds missing `track_inventory` and `reorder_level` columns, then keeps the Packaging Stock UI safe if a database host delays the schema alteration.
+
+
+### v0.8.2 Live POS Availability Refresh
+
+After a completed checkout, the POS requests a fresh catalog from the server and redraws all menu product availability. This recalculates limiting ingredient and packaging stock across the entire menu, so products that share resources update together without a manual browser refresh.

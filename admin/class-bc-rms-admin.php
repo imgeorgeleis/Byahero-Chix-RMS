@@ -8,6 +8,7 @@ class BC_RMS_Admin
         add_action('admin_menu', [__CLASS__, 'menu']);
         add_action('admin_init', [__CLASS__, 'save']);
         add_action('wp_ajax_bc_rms_checkout', [__CLASS__, 'ajax_checkout']);
+        add_action('wp_ajax_bc_rms_pos_catalog', [__CLASS__, 'ajax_pos_catalog']);
         add_action('wp_ajax_bc_rms_hold_order', [__CLASS__, 'ajax_hold_order']);
         add_action('wp_ajax_bc_rms_held_orders', [__CLASS__, 'ajax_held_orders']);
         add_action('wp_ajax_bc_rms_resume_order', [__CLASS__, 'ajax_resume_order']);
@@ -572,9 +573,16 @@ class BC_RMS_Admin
         $catalog=BC_RMS_POS_Service::catalog();
         wp_enqueue_script('bc-rms-pos',BC_RMS_URL.'assets/js/pos.js',[],BC_RMS_VERSION,true);
         wp_localize_script('bc-rms-pos','BCRMS_POS',['ajaxUrl'=>admin_url('admin-ajax.php'),'nonce'=>wp_create_nonce('bc_rms_pos'),'catalog'=>$catalog,'currency'=>'₱']);
-        echo '<div class="wrap bc-wrap bc-pos"><h1>Byahero Chix POS <small>v0.7.0</small></h1><div class="bc-pos-layout"><section><div class="bc-pos-toolbar"><input id="bc-pos-search" type="search" placeholder="Search menu..."><select id="bc-pos-category"><option value="">All Categories</option>';
+        echo '<div class="wrap bc-wrap bc-pos"><h1>Byahero Chix POS <small>v0.8.2</small></h1><div class="bc-pos-layout"><section><div class="bc-pos-toolbar"><input id="bc-pos-search" type="search" placeholder="Search menu..."><select id="bc-pos-category"><option value="">All Categories</option>';
         $cats=[];foreach($catalog as $x)if(!empty($x['category_name']))$cats[$x['category_name']]=1;foreach(array_keys($cats) as $c)echo '<option>'.esc_html($c).'</option>';
         echo '</select></div><div id="bc-pos-products" class="bc-pos-products"></div></section><aside class="bc-pos-cart"><h2>Current Order</h2><div class="bc-pos-order-type"><button type="button" data-type="dine_in" class="active">Dine-in</button><button type="button" data-type="takeout">Takeout</button></div><div id="bc-pos-cart-items"></div><div class="bc-pos-totals"><p><span>Subtotal</span><strong id="bc-pos-subtotal">₱0.00</strong></p><p><span>Discount</span><input id="bc-pos-discount" type="number" min="0" step="0.01" value="0"></p><p class="total"><span>Total</span><strong id="bc-pos-total">₱0.00</strong></p></div><label>Payment<select id="bc-pos-payment"><option value="cash">Cash</option><option value="gcash">GCash</option><option value="card">Card</option><option value="other">Other</option></select></label><label>Amount Tendered<input id="bc-pos-tendered" type="number" min="0" step="0.01"></label><div class="bc-pos-actions"><button id="bc-pos-hold" class="button button-large" type="button">Hold Order</button><button id="bc-pos-held" class="button button-large" type="button">Held Orders</button></div><button id="bc-pos-checkout" class="button button-primary button-hero">Complete Order</button><div id="bc-pos-message"></div></aside></div><div id="bc-pos-modal" class="bc-pos-modal" hidden><div class="bc-pos-modal-card"><button id="bc-pos-modal-close" type="button">×</button><div id="bc-pos-modal-body"></div></div></div></div>';
+    }
+
+    public static function ajax_pos_catalog()
+    {
+        check_ajax_referer('bc_rms_pos','nonce');
+        if(!current_user_can('bc_use_pos')) wp_send_json_error(['message'=>'Not allowed.'],403);
+        wp_send_json_success(BC_RMS_POS_Service::catalog());
     }
 
     public static function ajax_checkout()
