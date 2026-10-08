@@ -19,6 +19,7 @@ class BC_RMS_Admin
     {
         if (strpos($h, 'bc-rms') !== false) {
             wp_enqueue_style('bc-rms', BC_RMS_URL . 'assets/css/admin.css', [], BC_RMS_VERSION);
+            wp_enqueue_script('bc-rms-search-select', BC_RMS_URL . 'assets/js/search-select.js', [], BC_RMS_VERSION, true);
             if(strpos($h,'bc-rms-products')!==false) wp_enqueue_media();
         }
     }
@@ -175,7 +176,10 @@ class BC_RMS_Admin
         if ($a === 'ingredient') {
             $t = BC_RMS_DB::table('ingredients');
             $id = absint($_POST['id'] ?? 0);
-            $d = ['name' => sanitize_text_field($_POST['name']), 'category_id' => absint($_POST['category_id']) ?: null, 'description' => sanitize_textarea_field($_POST['description'] ?? ''), 'base_unit_id' => absint($_POST['base_unit_id']), 'minimum_stock' => (float) $_POST['minimum_stock'], 'reorder_level' => (float) $_POST['reorder_level'], 'track_inventory' => isset($_POST['track_inventory']) ? 1 : 0, 'active' => isset($_POST['active']) ? 1 : 0, 'updated_at' => $n];
+            $d = ['name' => sanitize_text_field($_POST['name']??''), 'category_id' => absint($_POST['category_id']??0) ?: null, 'description' => sanitize_textarea_field($_POST['description'] ?? ''), 'base_unit_id' => absint($_POST['base_unit_id']??0), 'minimum_stock' => (float) ($_POST['minimum_stock']??0), 'reorder_level' => (float) ($_POST['reorder_level']??0), 'track_inventory' => isset($_POST['track_inventory']) ? 1 : 0, 'active' => isset($_POST['active']) ? 1 : 0, 'updated_at' => $n];
+            if(!$d['name']) wp_die('Ingredient name is required.');
+            $duplicate=(int)$wpdb->get_var($wpdb->prepare("SELECT id FROM $t WHERE LOWER(TRIM(name))=LOWER(TRIM(%s)) AND id<>%d LIMIT 1",$d['name'],$id));
+            if($duplicate) wp_die('An ingredient named “'.esc_html($d['name']).'” already exists. Edit the existing ingredient instead.');
             if ($id)
                 $wpdb->update($t, $d, ['id' => $id]);
             else {
@@ -252,6 +256,8 @@ class BC_RMS_Admin
             $t=BC_RMS_DB::table('recipes');$id=absint($_POST['id']??0);
             $d=['name'=>sanitize_text_field($_POST['name']??''),'description'=>sanitize_textarea_field($_POST['description']??''),'yield_qty'=>(float)($_POST['yield_qty']??1),'yield_unit_id'=>absint($_POST['yield_unit_id']??0)?:null,'servings'=>max(0.0001,(float)($_POST['servings']??1)),'waste_percent'=>max(0,(float)($_POST['waste_percent']??0)),'active'=>isset($_POST['active'])?1:0,'updated_at'=>$n];
             if(!$d['name'])wp_die('Recipe name is required.');
+            $duplicate=(int)$wpdb->get_var($wpdb->prepare("SELECT id FROM $t WHERE LOWER(TRIM(name))=LOWER(TRIM(%s)) AND id<>%d LIMIT 1",$d['name'],$id));
+            if($duplicate) wp_die('A recipe named “'.esc_html($d['name']).'” already exists. Edit the existing recipe instead.');
             if($id)$wpdb->update($t,$d,['id'=>$id]);else{$d+=['uuid'=>BC_RMS_DB::uuid(),'created_at'=>$n];$wpdb->insert($t,$d);$id=(int)$wpdb->insert_id;}
             self::go('bc-rms-recipes',['saved'=>1,'edit'=>$id]);
         }
@@ -260,6 +266,8 @@ class BC_RMS_Admin
             $t=BC_RMS_DB::table('recipe_items');$id=absint($_POST['id']??0);$recipe_id=absint($_POST['recipe_id']??0);
             $d=['recipe_id'=>$recipe_id,'ingredient_id'=>absint($_POST['ingredient_id']??0),'quantity'=>(float)($_POST['quantity']??0),'unit_id'=>absint($_POST['unit_id']??0),'notes'=>sanitize_text_field($_POST['notes']??''),'sort_order'=>absint($_POST['sort_order']??0),'updated_at'=>$n];
             if(!$recipe_id||!$d['ingredient_id']||$d['quantity']<=0||!$d['unit_id'])wp_die('Recipe, ingredient, quantity, and unit are required.');
+            $duplicate=(int)$wpdb->get_var($wpdb->prepare("SELECT id FROM $t WHERE recipe_id=%d AND ingredient_id=%d AND id<>%d LIMIT 1",$recipe_id,$d['ingredient_id'],$id));
+            if($duplicate) wp_die('This ingredient is already included in the recipe. Edit the existing recipe ingredient instead.');
             if($id)$wpdb->update($t,$d,['id'=>$id]);else{$d+=['uuid'=>BC_RMS_DB::uuid(),'created_at'=>$n];$wpdb->insert($t,$d);}
             self::go('bc-rms-recipes',['saved'=>1,'edit'=>$recipe_id]);
         }
@@ -352,6 +360,8 @@ class BC_RMS_Admin
                 'updated_at'=>$n
             ];
             if(!$d['name']) wp_die('Product name is required.');
+            $duplicate_name=(int)$wpdb->get_var($wpdb->prepare("SELECT id FROM $t WHERE LOWER(TRIM(name))=LOWER(TRIM(%s)) AND id<>%d LIMIT 1",$d['name'],$id));
+            if($duplicate_name) wp_die('A menu product named “'.esc_html($d['name']).'” already exists. Edit the existing product instead.');
             if($sku!==''){
                 $duplicate=(int)$wpdb->get_var($wpdb->prepare("SELECT id FROM $t WHERE sku=%s AND id<>%d",$sku,$id));
                 if($duplicate) wp_die('SKU already exists. Please use a unique SKU.');
@@ -381,16 +391,16 @@ class BC_RMS_Admin
     {
         echo '<p><label><input type="checkbox" name="' . esc_attr($n) . '" value="1" ' . checked($v, true, false) . '> ' . esc_html($l) . '</label></p>';
     }
-    private static function sel($l, $n, $rows, $v = 0)
+    private static function sel($l, $n, $rows, $v = 0, $searchable = false)
     {
-        echo '<p><label><b>' . esc_html($l) . '</b><br><select name="' . esc_attr($n) . '" required><option value="">— Select —</option>';
+        echo '<p><label><b>' . esc_html($l) . '</b><br><select '.($searchable?'class="bc-search-select" ':'').'name="' . esc_attr($n) . '" required><option value="">— Select —</option>';
         foreach ($rows as $r)
             echo '<option value="' . $r->id . '" ' . selected($v, $r->id, false) . '>' . esc_html($r->name . (isset($r->symbol) ? ' (' . $r->symbol . ')' : '')) . '</option>';
         echo '</select></label></p>';
     }
-    private static function sel_optional($l,$n,$rows,$v=0)
+    private static function sel_optional($l,$n,$rows,$v=0,$searchable=false)
     {
-        echo '<p><label><b>'.esc_html($l).'</b><br><select name="'.esc_attr($n).'"><option value="">— None —</option>';
+        echo '<p><label><b>'.esc_html($l).'</b><br><select '.($searchable?'class="bc-search-select" ':'').'name="'.esc_attr($n).'"><option value="">— None —</option>';
         foreach($rows as $r) echo '<option value="'.absint($r->id).'" '.selected($v,$r->id,false).'>'.esc_html($r->name).'</option>';
         echo '</select></label></p>';
     }
@@ -542,7 +552,7 @@ class BC_RMS_Admin
         self::form('recipe',$id);self::f('Recipe Name','name',$r->name??'');self::f('Yield Quantity','yield_qty',$r->yield_qty??1,'number','0.0001');self::sel('Yield Unit','yield_unit_id',$units,$r->yield_unit_id??0);self::f('Servings','servings',$r->servings??1,'number','0.0001');self::f('Waste %','waste_percent',$r->waste_percent??0,'number','0.01');self::c('Active','active',!$r||$r->active);self::end();
         if($id){
             echo '<div class="bc-card"><h2>Add Recipe Ingredient</h2><form method="post">';self::nonce();echo '<input type="hidden" name="bc_rms_action" value="recipe_item"><input type="hidden" name="id" value="'.absint($item_id).'"><input type="hidden" name="recipe_id" value="'.absint($id).'">';
-            self::sel('Ingredient','ingredient_id',$wpdb->get_results("SELECT id,name FROM $it WHERE active=1 ORDER BY name"),$item->ingredient_id??0);self::f('Quantity','quantity',$item->quantity??1,'number','0.0001');self::sel('Unit','unit_id',$units,$item->unit_id??0);self::f('Notes','notes',$item->notes??'');self::f('Sort Order','sort_order',$item->sort_order??0,'number','1');submit_button($item_id?'Update Ingredient':'Add Ingredient');echo '</form></div>';
+            self::sel('Ingredient','ingredient_id',$wpdb->get_results("SELECT id,name FROM $it WHERE active=1 ORDER BY name"),$item->ingredient_id??0,true);self::f('Quantity','quantity',$item->quantity??1,'number','0.0001');self::sel('Unit','unit_id',$units,$item->unit_id??0);self::f('Notes','notes',$item->notes??'');self::f('Sort Order','sort_order',$item->sort_order??0,'number','1');submit_button($item_id?'Update Ingredient':'Add Ingredient');echo '</form></div>';
         }
         echo '</div><div>';
         if($id){$cost=BC_RMS_Costing_Service::recipe($id);echo '<div class="bc-card"><h2>Live Cost Summary</h2><div class="bc-cost-grid"><div><span>Ingredients</span><strong>₱'.number_format($cost['ingredient_cost'],2).'</strong></div><div><span>Waste</span><strong>₱'.number_format($cost['waste_cost'],2).'</strong></div><div><span>Total Recipe</span><strong>₱'.number_format($cost['total_cost'],2).'</strong></div><div><span>Per Serving</span><strong>₱'.number_format($cost['cost_per_serving'],2).'</strong></div></div>';if($cost['missing_costs'])echo '<p class="bc-warning">'.$cost['missing_costs'].' ingredient(s) have no usable preferred supplier cost and are excluded from the total.</p>';echo '</div>';
@@ -627,7 +637,7 @@ class BC_RMS_Admin
         $catalog=BC_RMS_POS_Service::catalog();
         wp_enqueue_script('bc-rms-pos',BC_RMS_URL.'assets/js/pos.js',[],BC_RMS_VERSION,true);
         wp_localize_script('bc-rms-pos','BCRMS_POS',['ajaxUrl'=>admin_url('admin-ajax.php'),'nonce'=>wp_create_nonce('bc_rms_pos'),'catalog'=>$catalog,'currency'=>'₱']);
-        echo '<div class="wrap bc-wrap bc-pos"><h1>Byahero Chix POS <small>v0.12.0</small></h1><div class="bc-pos-layout"><section><div class="bc-pos-toolbar"><input id="bc-pos-search" type="search" placeholder="Search menu..."><select id="bc-pos-category"><option value="">All Categories</option>';
+        echo '<div class="wrap bc-wrap bc-pos"><h1>Byahero Chix POS <small>v0.12.1</small></h1><div class="bc-pos-layout"><section><div class="bc-pos-toolbar"><input id="bc-pos-search" type="search" placeholder="Search menu..."><select id="bc-pos-category"><option value="">All Categories</option>';
         $cats=[];foreach($catalog as $x)if(!empty($x['category_name']))$cats[$x['category_name']]=1;foreach(array_keys($cats) as $c)echo '<option>'.esc_html($c).'</option>';
         echo '</select></div><div id="bc-pos-products" class="bc-pos-products"></div></section><aside class="bc-pos-cart"><h2>Current Order</h2><div class="bc-pos-order-type"><button type="button" data-type="dine_in" class="active">Dine-in</button><button type="button" data-type="takeout">Takeout</button></div><div id="bc-pos-cart-items"></div><div class="bc-pos-totals"><p><span>Subtotal</span><strong id="bc-pos-subtotal">₱0.00</strong></p><p><span>Discount</span><input id="bc-pos-discount" type="number" min="0" step="0.01" value="0"></p><p class="total"><span>Total</span><strong id="bc-pos-total">₱0.00</strong></p></div><label>Payment<select id="bc-pos-payment"><option value="cash">Cash</option><option value="gcash">GCash</option><option value="card">Card</option><option value="other">Other</option></select></label><label>Amount Tendered<input id="bc-pos-tendered" type="number" min="0" step="0.01"></label><div class="bc-change-box"><span>CHANGE</span><strong id="bc-pos-change">₱0.00</strong></div><div class="bc-quick-cash"><button type="button" data-cash="exact">Exact</button><button type="button" data-cash="100">₱100</button><button type="button" data-cash="200">₱200</button><button type="button" data-cash="500">₱500</button><button type="button" data-cash="1000">₱1,000</button></div><div class="bc-pos-actions"><button id="bc-pos-hold" class="button button-large" type="button">Hold Order</button><button id="bc-pos-held" class="button button-large" type="button">Held Orders</button></div><button id="bc-pos-checkout" class="button button-primary button-hero">Complete Order</button><div id="bc-pos-message"></div></aside></div><div id="bc-pos-modal" class="bc-pos-modal" hidden><div class="bc-pos-modal-card"><button id="bc-pos-modal-close" type="button">×</button><div id="bc-pos-modal-body"></div></div></div></div>';
     }
@@ -750,7 +760,7 @@ class BC_RMS_Admin
         self::f('Product Name','name',$r->name??'');
         self::f('SKU','sku',$r->sku??'');
         self::sel_optional('Menu Category','category_id',$cats,$r->category_id??0);
-        self::sel_optional('Recipe / Cost Basis','recipe_id',$recipes,$r->recipe_id??0);
+        self::sel_optional('Recipe / Cost Basis','recipe_id',$recipes,$r->recipe_id??0,true);
         $image_id=absint($r->image_id??0);$image_url=$image_id?wp_get_attachment_image_url($image_id,'medium'):false;
         echo '<p><label><b>Menu Image / Icon</b></label><br><input type="hidden" name="image_id" id="bc-product-image-id" value="'.esc_attr($image_id).'"><span id="bc-product-image-preview">'.($image_url?'<img src="'.esc_url($image_url).'" style="width:120px;height:120px;object-fit:cover;border-radius:8px;display:block;margin-bottom:8px">':'').'</span><button type="button" class="button" id="bc-product-image-select">Select Image</button> <button type="button" class="button" id="bc-product-image-remove">Remove</button></p><script>document.addEventListener("DOMContentLoaded",()=>{let frame,btn=document.querySelector("#bc-product-image-select"),remove=document.querySelector("#bc-product-image-remove"),id=document.querySelector("#bc-product-image-id"),preview=document.querySelector("#bc-product-image-preview");if(!btn)return;btn.onclick=()=>{if(frame){frame.open();return}frame=wp.media({title:"Select Menu Image",button:{text:"Use this image"},multiple:false});frame.on("select",()=>{let a=frame.state().get("selection").first().toJSON();id.value=a.id;preview.innerHTML=`<img src="${a.sizes?.medium?.url||a.url}" style="width:120px;height:120px;object-fit:cover;border-radius:8px;display:block;margin-bottom:8px">`});frame.open()};remove.onclick=()=>{id.value="";preview.innerHTML=""}})</script>';
         self::f('Selling Price','selling_price',$r->selling_price??0,'number','0.01');

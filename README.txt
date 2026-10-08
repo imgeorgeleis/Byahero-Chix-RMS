@@ -2,7 +2,7 @@
 Contributors: georgeleis
 Tags: restaurant, pos, inventory, recipe, costing
 Requires at least: 6.4
-Stable tag: 0.12.0
+Stable tag: 0.12.1
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -166,3 +166,9 @@ For older releases, see CHANGELOG.md.
 * Added Product menu images using the WordPress Media Library.
 * Added larger payment totals, live change, and quick-cash controls.
 * Inventory remains committed only on successful paid checkout.
+
+
+= 0.12.1 =
+* Prevent duplicate Ingredients, Recipes, and Products/Menu records.
+* Prevent duplicate Ingredients within the same Recipe.
+* Add searchable Ingredient and Recipe selectors.

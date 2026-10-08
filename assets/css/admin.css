@@ -70,3 +70,5 @@
 @media print{#adminmenumain,#wpadminbar,#wpfooter,.notice,.bc-no-print,.bc-print-receipt{display:none!important}#wpcontent{margin-left:0!important}.wrap{margin:0!important}.bc-receipt{border:0!important;box-shadow:none!important}.bc-receipt .widefat{border:0}.bc-receipt h2{text-align:center}}
 
 .bc-pos-product em{font-style:normal;font-size:11px;font-weight:600;margin-top:4px}.bc-pos-product.is-out-of-stock{opacity:.48;cursor:not-allowed;background:#f6f7f7}.bc-pos-product.is-out-of-stock em{color:#b32d2e}.bc-pos-product:not(.is-out-of-stock) em{color:#2271b1}
+
+.bc-search-select-wrap{display:inline-flex;flex-direction:column;gap:5px;min-width:320px;max-width:100%}.bc-search-select-wrap select,.bc-search-select-input{width:100%;max-width:520px}.bc-search-select-input{min-height:34px}

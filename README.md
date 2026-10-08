@@ -196,3 +196,7 @@ Actual Purchase Order receiving now feeds the costing engine. Ingredient receipt
 Create a normal WordPress page (for example `/rms/`) and place the shortcode `[byahero_chix_rms]` in it. Logged-in RMS users receive a capability-aware application shell and the new touch-first POS. Product images are selected from the WordPress Media Library in Products / Menu.
 
 The payment panel emphasizes Total, Cash Tendered, and live Change, and includes Exact/100/200/500/1000 quick-cash controls. The existing paid-order inventory rule is preserved: Hold does not consume stock; a successful checkout/payment commits inventory.
+
+
+### v0.12.1 Data Integrity & Searchable Builders
+Ingredient, Recipe, and Product/Menu names are protected against duplicate records using case-insensitive, trimmed comparisons. A Recipe also cannot contain the same Ingredient twice. Recipe Ingredient selection and Product Recipe/Cost Basis selection now include a lightweight searchable selector without third-party JavaScript dependencies.

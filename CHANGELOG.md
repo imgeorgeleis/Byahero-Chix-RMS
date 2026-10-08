@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.12.1
+- Prevent duplicate Ingredient names using case-insensitive, trimmed matching.
+- Prevent duplicate Recipe names using case-insensitive, trimmed matching.
+- Prevent duplicate Product/Menu names using case-insensitive, trimmed matching.
+- Prevent the same Ingredient from being added twice to one Recipe.
+- Added dependency-free searchable selectors for Recipe Ingredients and Product Recipe/Cost Basis.
+- No database schema changes.
+
+
 ## 0.12.0
 - Added front-end RMS application shell via `[byahero_chix_rms]`.
 - Added role/capability-aware front-end navigation foundation.
