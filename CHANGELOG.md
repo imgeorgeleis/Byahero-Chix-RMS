@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.12.2
+- Added client-side table search and pagination for key RMS admin listing tables.
+- No order, discount, inventory, or database behavior changed.
+
+
 ## 0.12.1
 - Prevent duplicate Ingredient names using case-insensitive, trimmed matching.
 - Prevent duplicate Recipe names using case-insensitive, trimmed matching.

@@ -72,3 +72,5 @@
 .bc-pos-product em{font-style:normal;font-size:11px;font-weight:600;margin-top:4px}.bc-pos-product.is-out-of-stock{opacity:.48;cursor:not-allowed;background:#f6f7f7}.bc-pos-product.is-out-of-stock em{color:#b32d2e}.bc-pos-product:not(.is-out-of-stock) em{color:#2271b1}
 
 .bc-search-select-wrap{display:inline-flex;flex-direction:column;gap:5px;min-width:320px;max-width:100%}.bc-search-select-wrap select,.bc-search-select-input{width:100%;max-width:520px}.bc-search-select-input{min-height:34px}
+
+.bc-table-tools{display:flex;align-items:center;flex-wrap:wrap;gap:9px;margin:15px 0;padding:10px;background:#fff;border:1px solid #ddd;border-radius:8px}.bc-table-tools input{min-width:200px;flex:1;max-width:350px}.bc-table-tools button{padding:6px 10px;cursor:pointer}.bc-table-tools span{font-size:12px;color:#555}tr[hidden]{display:none!important}

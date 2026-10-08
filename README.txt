@@ -2,7 +2,7 @@
 Contributors: georgeleis
 Tags: restaurant, pos, inventory, recipe, costing
 Requires at least: 6.4
-Stable tag: 0.12.1
+Stable tag: 0.12.2
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -172,3 +172,6 @@ For older releases, see CHANGELOG.md.
 * Prevent duplicate Ingredients, Recipes, and Products/Menu records.
 * Prevent duplicate Ingredients within the same Recipe.
 * Add searchable Ingredient and Recipe selectors.
+
+= 0.12.2 =
+* Search and pagination for major RMS admin data tables.

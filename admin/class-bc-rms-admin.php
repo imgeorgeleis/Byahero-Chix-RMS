@@ -20,6 +20,7 @@ class BC_RMS_Admin
         if (strpos($h, 'bc-rms') !== false) {
             wp_enqueue_style('bc-rms', BC_RMS_URL . 'assets/css/admin.css', [], BC_RMS_VERSION);
             wp_enqueue_script('bc-rms-search-select', BC_RMS_URL . 'assets/js/search-select.js', [], BC_RMS_VERSION, true);
+            wp_enqueue_script('bc-rms-table-tools', BC_RMS_URL . 'assets/js/table-tools.js', [], BC_RMS_VERSION, true);
             if(strpos($h,'bc-rms-products')!==false) wp_enqueue_media();
         }
     }
