@@ -1,3 +1,11 @@
+## 0.13.1 — Inventory-Aware Variants & Modifiers
+- Variant recipe multiplier and optional recipe override; default multiplier 1 preserves older variants.
+- Modifiers can reference recipe servings or ingredient quantity/unit.
+- Paid checkout stock validation and movement-ledger deduction use variant and modifier consumption.
+- Existing voids reverse recorded movements.
+- Added database migration and admin configuration controls.
+- Packaging remains per product/order, not multiplied by chicken piece count.
+
 ## 0.13.0 — Kitchen workflow foundation
 - Takeout orders progress to Picked Up (instead of Served); dine-in orders progress to Served.
 - Added a Kitchen navigation link for authorized front-end RMS users (opens the admin Kitchen board).

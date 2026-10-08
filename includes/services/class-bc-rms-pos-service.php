@@ -30,6 +30,14 @@ class BC_RMS_POS_Service {
                 $g['modifiers']=$wpdb->get_results($wpdb->prepare("SELECT id,name,price_adjustment,cost_adjustment FROM $mt WHERE group_id=%d AND active=1 ORDER BY sort_order,name",$g['id']),ARRAY_A);
             }
             $p['modifier_groups']=$groups;
+            foreach($p['variants'] as &$variant){
+                $req=BC_RMS_Inventory_Service::line_requirements((int)$p['id'],1,(int)$variant['id']);$limit=null;$short=[];
+                foreach($req as $r){$stock=BC_RMS_Inventory_Service::stock($r['ingredient_id']);$possible=$r['required']>0?(int)floor(($stock+0.0000001)/$r['required']):PHP_INT_MAX;$limit=$limit===null?$possible:min($limit,$possible);if($stock+0.0000001<$r['required'])$short[]=$r['name'];}
+                foreach(BC_RMS_Inventory_Service::product_packaging_requirements((int)$p['id'],1) as $r){$stock=BC_RMS_Inventory_Service::packaging_stock($r['packaging_id']);$possible=$r['required']>0?(int)floor(($stock+0.0000001)/$r['required']):PHP_INT_MAX;$limit=$limit===null?$possible:min($limit,$possible);if($stock+0.0000001<$r['required'])$short[]=$r['name'];}
+                $variant['max_quantity']=$limit;$variant['in_stock']=empty($short);
+            }unset($variant);
+            if($p['variants']){$p['in_stock']=false;$p['max_quantity']=0;foreach($p['variants'] as $variant)if($variant['in_stock']){$p['in_stock']=true;$p['max_quantity']=max((int)$p['max_quantity'],(int)($variant['max_quantity']??999999));}}
+
         }
         return $products;
     }

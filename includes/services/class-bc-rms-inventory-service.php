@@ -80,6 +80,25 @@ class BC_RMS_Inventory_Service {
         return array_values($req);
     }
 
+    public static function recipe_requirements($recipe_id,$serving_qty=1) {
+        global $wpdb;$rit=BC_RMS_DB::table('recipe_items');$rt=BC_RMS_DB::table('recipes');$it=BC_RMS_DB::table('ingredients');$ut=BC_RMS_DB::table('units');
+        $recipe=$wpdb->get_row($wpdb->prepare("SELECT servings FROM $rt WHERE id=%d",$recipe_id));if(!$recipe)return [];
+        $rows=$wpdb->get_results($wpdb->prepare("SELECT ri.*,i.name,i.track_inventory,u.symbol FROM $rit ri JOIN $it i ON i.id=ri.ingredient_id JOIN $ut u ON u.id=i.base_unit_id WHERE ri.recipe_id=%d",$recipe_id));
+        $out=[];foreach($rows as $ri){if(!$ri->track_inventory)continue;$base=self::to_ingredient_base((int)$ri->ingredient_id,(float)$ri->quantity,(int)$ri->unit_id);if(null===$base)throw new Exception('Invalid recipe ingredient unit conversion.');$qty=$base/max(.0001,(float)$recipe->servings)*$serving_qty;$id=(int)$ri->ingredient_id;if(!isset($out[$id]))$out[$id]=['ingredient_id'=>$id,'name'=>$ri->name,'symbol'=>$ri->symbol,'required'=>0];$out[$id]['required']+=$qty;}return array_values($out);
+    }
+    public static function line_requirements($product_id,$quantity=1,$variant_id=0,$modifier_ids=[]) {
+        global $wpdb;$pt=BC_RMS_DB::table('products');$vt=BC_RMS_DB::table('product_variants');$mt=BC_RMS_DB::table('modifiers');$it=BC_RMS_DB::table('ingredients');$ut=BC_RMS_DB::table('units');
+        $p=$wpdb->get_row($wpdb->prepare("SELECT recipe_id FROM $pt WHERE id=%d",$product_id));if(!$p)return [];$recipe_id=(int)$p->recipe_id;$mult=1;
+        if($variant_id){$v=$wpdb->get_row($wpdb->prepare("SELECT recipe_multiplier,recipe_override_id FROM $vt WHERE id=%d AND product_id=%d",$variant_id,$product_id));if(!$v)throw new Exception('Invalid product variant.');$mult=max(.0001,(float)$v->recipe_multiplier);if($v->recipe_override_id)$recipe_id=(int)$v->recipe_override_id;}
+        $out=[];$add=function($r)use(&$out){$id=(int)$r['ingredient_id'];if(!isset($out[$id]))$out[$id]=$r;else $out[$id]['required']+=$r['required'];};
+        if($recipe_id)foreach(self::recipe_requirements($recipe_id,$quantity*$mult) as $r)$add($r);
+        foreach(array_unique(array_map('absint',(array)$modifier_ids)) as $mid){$m=$wpdb->get_row($wpdb->prepare("SELECT inventory_source,inventory_source_id,inventory_quantity FROM $mt WHERE id=%d",$mid));if(!$m||$m->inventory_source==='none'||!$m->inventory_source_id)continue;$amount=max(.0001,(float)$m->inventory_quantity)*$quantity;
+            if($m->inventory_source==='recipe'){foreach(self::recipe_requirements((int)$m->inventory_source_id,$amount) as $r)$add($r);}
+            elseif($m->inventory_source==='ingredient'){$full=$wpdb->get_row($wpdb->prepare("SELECT m.inventory_unit_id,i.name,i.track_inventory,u.symbol FROM $mt m JOIN $it i ON i.id=m.inventory_source_id JOIN $ut u ON u.id=i.base_unit_id WHERE m.id=%d",$mid));if(!$full)throw new Exception('Invalid modifier ingredient.');if(!$full->track_inventory)continue;$base=self::to_ingredient_base((int)$m->inventory_source_id,$amount,(int)$full->inventory_unit_id);if(null===$base)throw new Exception('Invalid modifier unit conversion.');$add(['ingredient_id'=>(int)$m->inventory_source_id,'name'=>$full->name,'symbol'=>$full->symbol,'required'=>$base]);}
+        }
+        return array_values($out);
+    }
+
     public static function product_availability($product_id) {
         $req=self::product_requirements($product_id,1);
         if(!$req) return ['available'=>true,'max_quantity'=>null,'shortages'=>[]];
@@ -103,7 +122,7 @@ class BC_RMS_Inventory_Service {
         $totals=[];$meta=[];
         foreach((array)$items as $raw){
             $pid=absint($raw['product_id']??0);$qty=max(1,(float)($raw['quantity']??1));
-            foreach(self::product_requirements($pid,$qty) as $r){
+            foreach(self::line_requirements($pid,$qty,absint($raw['variant_id']??0),$raw['modifier_ids']??[]) as $r){
                 $iid=$r['ingredient_id'];
                 if(!isset($totals[$iid])){$totals[$iid]=0;$meta[$iid]=$r;}
                 $totals[$iid]+=$r['required'];
@@ -135,21 +154,12 @@ class BC_RMS_Inventory_Service {
         $ot=BC_RMS_DB::table('orders');$oit=BC_RMS_DB::table('order_items');$pt=BC_RMS_DB::table('products');
         $rt=BC_RMS_DB::table('recipes');$rit=BC_RMS_DB::table('recipe_items');$it=BC_RMS_DB::table('ingredients');
         $o=$wpdb->get_row($wpdb->prepare("SELECT order_number FROM $ot WHERE id=%d",$order_id));if(!$o)return false;
-        $items=$wpdb->get_results($wpdb->prepare("SELECT oi.product_id,oi.quantity,p.recipe_id FROM $oit oi JOIN $pt p ON p.id=oi.product_id WHERE oi.order_id=%d",$order_id));
+        $omt=BC_RMS_DB::table('order_item_modifiers');
+        $items=$wpdb->get_results($wpdb->prepare("SELECT id,product_id,variant_id,quantity FROM $oit WHERE order_id=%d",$order_id));
         foreach($items as $line){
-            if(!$line->recipe_id) continue;
-            $recipe=$wpdb->get_row($wpdb->prepare("SELECT servings FROM $rt WHERE id=%d",$line->recipe_id));if(!$recipe)continue;
-            $servings=max(0.0001,(float)$recipe->servings);
-            $ris=$wpdb->get_results($wpdb->prepare("SELECT ri.*,i.track_inventory FROM $rit ri JOIN $it i ON i.id=ri.ingredient_id WHERE ri.recipe_id=%d",$line->recipe_id));
-            foreach($ris as $ri){
-                if(!$ri->track_inventory) continue;
-                $base=self::to_ingredient_base((int)$ri->ingredient_id,(float)$ri->quantity,(int)$ri->unit_id);
-                if(null===$base) throw new Exception('Inventory unit conversion failed for ingredient ID '.(int)$ri->ingredient_id.'.');
-                $used=($base/$servings)*(float)$line->quantity;
-                if($used>0 && !self::add_movement($ri->ingredient_id,'sale',-$used,[
-                    'reference_type'=>'order','reference_id'=>$order_id,'reference_code'=>$o->order_number,
-                    'notes'=>'Automatic recipe consumption'
-                ])) throw new Exception('Could not write inventory sale movement.');
+            $mods=$wpdb->get_col($wpdb->prepare("SELECT modifier_id FROM $omt WHERE order_item_id=%d",$line->id));
+            foreach(self::line_requirements((int)$line->product_id,(float)$line->quantity,(int)$line->variant_id,$mods) as $r){
+                if($r['required']>0&&!self::add_movement($r['ingredient_id'],'sale',-$r['required'],['reference_type'=>'order','reference_id'=>$order_id,'reference_code'=>$o->order_number,'notes'=>'Recipe/variant/modifier consumption']))throw new Exception('Could not write inventory sale movement.');
             }
         }
         $items=$wpdb->get_results($wpdb->prepare("SELECT product_id,quantity FROM $oit WHERE order_id=%d",$order_id));

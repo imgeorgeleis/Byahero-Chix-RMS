@@ -205,3 +205,12 @@ Ingredient, Recipe, and Product/Menu names are protected against duplicate recor
 ## Kitchen workflow (v0.13.0 foundation)
 
 The Orders table now includes independent `payment_status`, `fulfillment_status` and `sales_channel` fields. New POS checkouts are recorded as paid and queued for kitchen; held orders remain unpaid/not started. Authorized users can open **RMS → Kitchen** to move paid orders through Queued → Preparing → Ready → Served (Dine-in) or Picked Up (Takeout). This version does not yet change POS payment capture or implement external payment verification. Modifier recipe consumption, promotions, and WooCommerce sync are deferred to the next incremental releases.
+
+
+## v0.13.1 Inventory-Aware Variant & Modifier setup
+
+- In **Product Variants**, configure `Recipe Multiplier`: Solo = 1, 2pc = 2. The product base recipe is multiplied per ordered unit. Optionally choose a different recipe for a specific variant. Packaging remains at product-level quantities (not multiplied).
+- In **Modifiers**, choose Inventory Source = Recipe or Ingredient. For Recipe sources, Quantity is recipe **servings**, not millilitres. For example, where sauce recipe has a batch yield of 1000 ml configured as 1000 servings, Quantity 30 consumes 30 ml worth. Ingredient sources require compatible Unit.
+- The order transaction checks combined inventory across products, variants, modifiers, and packaging before accepting cash/payment. Held orders do not consume stock. Voids reverse actual saved sale movements.
+- This first release does NOT support batch-prepared sauce stock; it consumes underlying sauce-recipe ingredients. Do not apply both a base recipe and modifier to the same physical sauce portion or stock will be double counted.
+- A recipe may contain other components such as rice; using multiplier 2 doubles the entire parent recipe. Use a chicken-only base recipe or variant-specific recipe when sides must remain single.
