@@ -189,3 +189,10 @@ Each item may have multiple supplier catalog records. One supplier can be explic
 ### v0.11.1 Received Cost Synchronization
 
 Actual Purchase Order receiving now feeds the costing engine. Ingredient receipt prices update the supplier catalog used by live recipe costing. Packaging receipt prices update the packaging master unit cost used by product costing. Each synchronization also records a Purchase Order price-history snapshot.
+
+
+## Front-end RMS + POS 2.0 (v0.12.0)
+
+Create a normal WordPress page (for example `/rms/`) and place the shortcode `[byahero_chix_rms]` in it. Logged-in RMS users receive a capability-aware application shell and the new touch-first POS. Product images are selected from the WordPress Media Library in Products / Menu.
+
+The payment panel emphasizes Total, Cash Tendered, and live Change, and includes Exact/100/200/500/1000 quick-cash controls. The existing paid-order inventory rule is preserved: Hold does not consume stock; a successful checkout/payment commits inventory.

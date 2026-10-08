@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.12.0
+- Added front-end RMS application shell via `[byahero_chix_rms]`.
+- Added role/capability-aware front-end navigation foundation.
+- Added POS 2.0 responsive/touch-first layout for front-end RMS.
+- Added WordPress Media Library menu image/icon support for Products.
+- POS catalog cards now display product images with a fallback icon.
+- Added large Total, Cash Tendered, live Change, Exact Cash, and quick cash buttons.
+- Preserved inventory commitment rule: held/unpaid orders do not consume stock; successful paid checkout consumes inventory.
+- Existing WordPress-admin POS remains available as a fallback during transition.
+
+
 ## 0.11.1
 - Receiving a Purchase Order now synchronizes actual received pricing back to costing.
 - Ingredient PO receiving updates the matching supplier catalog price, so live recipe costs use the latest received supplier price.

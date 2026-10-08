@@ -17,8 +17,10 @@ class BC_RMS_Admin
     }
     public static function assets($h)
     {
-        if (strpos($h, 'bc-rms') !== false)
+        if (strpos($h, 'bc-rms') !== false) {
             wp_enqueue_style('bc-rms', BC_RMS_URL . 'assets/css/admin.css', [], BC_RMS_VERSION);
+            if(strpos($h,'bc-rms-products')!==false) wp_enqueue_media();
+        }
     }
     public static function menu()
     {
@@ -342,6 +344,7 @@ class BC_RMS_Admin
                 'category_id'=>absint($_POST['category_id']??0)?:null,
                 'recipe_id'=>absint($_POST['recipe_id']??0)?:null,
                 'description'=>sanitize_textarea_field($_POST['description']??''),
+                'image_id'=>absint($_POST['image_id']??0)?:null,
                 'selling_price'=>max(0,(float)($_POST['selling_price']??0)),
                 'pos_enabled'=>isset($_POST['pos_enabled'])?1:0,
                 'active'=>isset($_POST['active'])?1:0,
@@ -624,9 +627,9 @@ class BC_RMS_Admin
         $catalog=BC_RMS_POS_Service::catalog();
         wp_enqueue_script('bc-rms-pos',BC_RMS_URL.'assets/js/pos.js',[],BC_RMS_VERSION,true);
         wp_localize_script('bc-rms-pos','BCRMS_POS',['ajaxUrl'=>admin_url('admin-ajax.php'),'nonce'=>wp_create_nonce('bc_rms_pos'),'catalog'=>$catalog,'currency'=>'₱']);
-        echo '<div class="wrap bc-wrap bc-pos"><h1>Byahero Chix POS <small>v0.11.0</small></h1><div class="bc-pos-layout"><section><div class="bc-pos-toolbar"><input id="bc-pos-search" type="search" placeholder="Search menu..."><select id="bc-pos-category"><option value="">All Categories</option>';
+        echo '<div class="wrap bc-wrap bc-pos"><h1>Byahero Chix POS <small>v0.12.0</small></h1><div class="bc-pos-layout"><section><div class="bc-pos-toolbar"><input id="bc-pos-search" type="search" placeholder="Search menu..."><select id="bc-pos-category"><option value="">All Categories</option>';
         $cats=[];foreach($catalog as $x)if(!empty($x['category_name']))$cats[$x['category_name']]=1;foreach(array_keys($cats) as $c)echo '<option>'.esc_html($c).'</option>';
-        echo '</select></div><div id="bc-pos-products" class="bc-pos-products"></div></section><aside class="bc-pos-cart"><h2>Current Order</h2><div class="bc-pos-order-type"><button type="button" data-type="dine_in" class="active">Dine-in</button><button type="button" data-type="takeout">Takeout</button></div><div id="bc-pos-cart-items"></div><div class="bc-pos-totals"><p><span>Subtotal</span><strong id="bc-pos-subtotal">₱0.00</strong></p><p><span>Discount</span><input id="bc-pos-discount" type="number" min="0" step="0.01" value="0"></p><p class="total"><span>Total</span><strong id="bc-pos-total">₱0.00</strong></p></div><label>Payment<select id="bc-pos-payment"><option value="cash">Cash</option><option value="gcash">GCash</option><option value="card">Card</option><option value="other">Other</option></select></label><label>Amount Tendered<input id="bc-pos-tendered" type="number" min="0" step="0.01"></label><div class="bc-pos-actions"><button id="bc-pos-hold" class="button button-large" type="button">Hold Order</button><button id="bc-pos-held" class="button button-large" type="button">Held Orders</button></div><button id="bc-pos-checkout" class="button button-primary button-hero">Complete Order</button><div id="bc-pos-message"></div></aside></div><div id="bc-pos-modal" class="bc-pos-modal" hidden><div class="bc-pos-modal-card"><button id="bc-pos-modal-close" type="button">×</button><div id="bc-pos-modal-body"></div></div></div></div>';
+        echo '</select></div><div id="bc-pos-products" class="bc-pos-products"></div></section><aside class="bc-pos-cart"><h2>Current Order</h2><div class="bc-pos-order-type"><button type="button" data-type="dine_in" class="active">Dine-in</button><button type="button" data-type="takeout">Takeout</button></div><div id="bc-pos-cart-items"></div><div class="bc-pos-totals"><p><span>Subtotal</span><strong id="bc-pos-subtotal">₱0.00</strong></p><p><span>Discount</span><input id="bc-pos-discount" type="number" min="0" step="0.01" value="0"></p><p class="total"><span>Total</span><strong id="bc-pos-total">₱0.00</strong></p></div><label>Payment<select id="bc-pos-payment"><option value="cash">Cash</option><option value="gcash">GCash</option><option value="card">Card</option><option value="other">Other</option></select></label><label>Amount Tendered<input id="bc-pos-tendered" type="number" min="0" step="0.01"></label><div class="bc-change-box"><span>CHANGE</span><strong id="bc-pos-change">₱0.00</strong></div><div class="bc-quick-cash"><button type="button" data-cash="exact">Exact</button><button type="button" data-cash="100">₱100</button><button type="button" data-cash="200">₱200</button><button type="button" data-cash="500">₱500</button><button type="button" data-cash="1000">₱1,000</button></div><div class="bc-pos-actions"><button id="bc-pos-hold" class="button button-large" type="button">Hold Order</button><button id="bc-pos-held" class="button button-large" type="button">Held Orders</button></div><button id="bc-pos-checkout" class="button button-primary button-hero">Complete Order</button><div id="bc-pos-message"></div></aside></div><div id="bc-pos-modal" class="bc-pos-modal" hidden><div class="bc-pos-modal-card"><button id="bc-pos-modal-close" type="button">×</button><div id="bc-pos-modal-body"></div></div></div></div>';
     }
 
     public static function ajax_pos_catalog()
@@ -748,6 +751,8 @@ class BC_RMS_Admin
         self::f('SKU','sku',$r->sku??'');
         self::sel_optional('Menu Category','category_id',$cats,$r->category_id??0);
         self::sel_optional('Recipe / Cost Basis','recipe_id',$recipes,$r->recipe_id??0);
+        $image_id=absint($r->image_id??0);$image_url=$image_id?wp_get_attachment_image_url($image_id,'medium'):false;
+        echo '<p><label><b>Menu Image / Icon</b></label><br><input type="hidden" name="image_id" id="bc-product-image-id" value="'.esc_attr($image_id).'"><span id="bc-product-image-preview">'.($image_url?'<img src="'.esc_url($image_url).'" style="width:120px;height:120px;object-fit:cover;border-radius:8px;display:block;margin-bottom:8px">':'').'</span><button type="button" class="button" id="bc-product-image-select">Select Image</button> <button type="button" class="button" id="bc-product-image-remove">Remove</button></p><script>document.addEventListener("DOMContentLoaded",()=>{let frame,btn=document.querySelector("#bc-product-image-select"),remove=document.querySelector("#bc-product-image-remove"),id=document.querySelector("#bc-product-image-id"),preview=document.querySelector("#bc-product-image-preview");if(!btn)return;btn.onclick=()=>{if(frame){frame.open();return}frame=wp.media({title:"Select Menu Image",button:{text:"Use this image"},multiple:false});frame.on("select",()=>{let a=frame.state().get("selection").first().toJSON();id.value=a.id;preview.innerHTML=`<img src="${a.sizes?.medium?.url||a.url}" style="width:120px;height:120px;object-fit:cover;border-radius:8px;display:block;margin-bottom:8px">`});frame.open()};remove.onclick=()=>{id.value="";preview.innerHTML=""}})</script>';
         self::f('Selling Price','selling_price',$r->selling_price??0,'number','0.01');
         self::f('Sort Order','sort_order',$r->sort_order??0,'number','1');
         echo '<p><label><b>Description</b><br><textarea class="large-text" rows="4" name="description">'.esc_textarea($r->description??'').'</textarea></label></p>';

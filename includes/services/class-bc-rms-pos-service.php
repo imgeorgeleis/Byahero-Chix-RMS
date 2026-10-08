@@ -18,6 +18,7 @@ class BC_RMS_POS_Service {
 
         $products=$wpdb->get_results("SELECT p.*,c.name category_name FROM $pt p LEFT JOIN $ct c ON c.id=p.category_id WHERE p.active=1 AND p.pos_enabled=1 ORDER BY c.sort_order,p.sort_order,p.name",ARRAY_A);
         foreach($products as &$p){
+            $p['image_url']=!empty($p['image_id'])?wp_get_attachment_image_url((int)$p['image_id'],'medium'):false;
             $p['base_cost']=(float)(BC_RMS_Product_Service::summary((int)$p['id'])['base_cost']??0);
             $availability=BC_RMS_Inventory_Service::product_availability((int)$p['id']);
             $p['in_stock']=$availability['available'];

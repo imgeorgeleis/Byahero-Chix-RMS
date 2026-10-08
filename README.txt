@@ -2,7 +2,7 @@
 Contributors: georgeleis
 Tags: restaurant, pos, inventory, recipe, costing
 Requires at least: 6.4
-Stable tag: 0.11.1
+Stable tag: 0.12.0
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -159,3 +159,10 @@ For older releases, see CHANGELOG.md.
 * Sync actual PO receipt prices to ingredient recipe costing.
 * Sync packaging PO receipt cost to packaging unit cost.
 * Record PO-sourced supplier price history.
+
+
+= 0.12.0 =
+* Added front-end RMS shell and POS 2.0.
+* Added Product menu images using the WordPress Media Library.
+* Added larger payment totals, live change, and quick-cash controls.
+* Inventory remains committed only on successful paid checkout.
