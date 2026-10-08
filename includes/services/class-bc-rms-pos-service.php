@@ -55,7 +55,7 @@ class BC_RMS_POS_Service {
         $wpdb->query('START TRANSACTION');
         try{
             $num='HOLD-'.current_time('Ymd-His').'-'.wp_rand(100,999);
-            if(!$wpdb->insert($ot,['uuid'=>BC_RMS_DB::uuid(),'order_number'=>$num,'status'=>'held','order_type'=>in_array($payload['order_type']??'dine_in',['dine_in','takeout'],true)?$payload['order_type']:'dine_in','subtotal'=>$subtotal,'discount_total'=>$discount,'tax_total'=>0,'total'=>$total,'payment_method'=>'cash','amount_tendered'=>0,'change_due'=>0,'cashier_user_id'=>get_current_user_id(),'notes'=>sanitize_textarea_field($payload['notes']??''),'completed_at'=>null,'created_at'=>$now,'updated_at'=>$now])) throw new Exception($wpdb->last_error?:'Could not hold order.');
+            if(!$wpdb->insert($ot,['uuid'=>BC_RMS_DB::uuid(),'order_number'=>$num,'status'=>'held','payment_status'=>'unpaid','fulfillment_status'=>'not_started','sales_channel'=>'pos','order_type'=>in_array($payload['order_type']??'dine_in',['dine_in','takeout'],true)?$payload['order_type']:'dine_in','subtotal'=>$subtotal,'discount_total'=>$discount,'tax_total'=>0,'total'=>$total,'payment_method'=>'cash','amount_tendered'=>0,'change_due'=>0,'cashier_user_id'=>get_current_user_id(),'notes'=>sanitize_textarea_field($payload['notes']??''),'completed_at'=>null,'created_at'=>$now,'updated_at'=>$now])) throw new Exception($wpdb->last_error?:'Could not hold order.');
             $oid=(int)$wpdb->insert_id;
             foreach($normalized as $x){
                 if(!$wpdb->insert($oit,['uuid'=>BC_RMS_DB::uuid(),'order_id'=>$oid,'product_id'=>$x['p']->id,'variant_id'=>$x['v']?$x['v']->id:null,'product_name'=>$x['p']->name,'variant_name'=>$x['v']?$x['v']->name:null,'sku'=>$x['v']&&$x['v']->sku?$x['v']->sku:$x['p']->sku,'quantity'=>$x['qty'],'unit_price'=>$x['price'],'unit_cost'=>$x['cost'],'line_total'=>$x['price']*$x['qty'],'notes'=>$x['notes'],'created_at'=>$now])) throw new Exception($wpdb->last_error?:'Could not save held item.');
@@ -90,7 +90,7 @@ class BC_RMS_POS_Service {
         $wpdb->query('START TRANSACTION');
         try{
             BC_RMS_Inventory_Service::reverse_order($id);
-            if(false===$wpdb->update($ot,['status'=>'voided','notes'=>$note,'updated_at'=>current_time('mysql')],['id'=>$id])) throw new Exception($wpdb->last_error?:'Could not void order.');
+            if(false===$wpdb->update($ot,['status'=>'voided','fulfillment_status'=>'cancelled','notes'=>$note,'updated_at'=>current_time('mysql')],['id'=>$id])) throw new Exception($wpdb->last_error?:'Could not void order.');
             $wpdb->query('COMMIT');return true;
         }catch(Exception $e){$wpdb->query('ROLLBACK');return new WP_Error('void_failed',$e->getMessage());}
     }
@@ -162,7 +162,7 @@ class BC_RMS_POS_Service {
                 $exists=(int)$wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM $ot WHERE order_number=%s",$order_number));
                 $seq++;
             }while($exists);
-            $ok=$wpdb->insert($ot,['uuid'=>BC_RMS_DB::uuid(),'order_number'=>$order_number,'status'=>'completed','order_type'=>in_array($payload['order_type']??'dine_in',['dine_in','takeout'],true)?$payload['order_type']:'dine_in','subtotal'=>$subtotal,'discount_total'=>$discount,'tax_total'=>$tax,'total'=>$total,'payment_method'=>$method,'amount_tendered'=>$tender,'change_due'=>$change,'cashier_user_id'=>get_current_user_id(),'notes'=>sanitize_textarea_field($payload['notes']??''),'completed_at'=>$now,'created_at'=>$now,'updated_at'=>$now]);
+            $ok=$wpdb->insert($ot,['uuid'=>BC_RMS_DB::uuid(),'order_number'=>$order_number,'status'=>'completed','payment_status'=>'paid','fulfillment_status'=>'queued','sales_channel'=>'pos','order_type'=>in_array($payload['order_type']??'dine_in',['dine_in','takeout'],true)?$payload['order_type']:'dine_in','subtotal'=>$subtotal,'discount_total'=>$discount,'tax_total'=>$tax,'total'=>$total,'payment_method'=>$method,'amount_tendered'=>$tender,'change_due'=>$change,'cashier_user_id'=>get_current_user_id(),'notes'=>sanitize_textarea_field($payload['notes']??''),'completed_at'=>$now,'created_at'=>$now,'updated_at'=>$now]);
             if(!$ok) throw new Exception($wpdb->last_error?:'Could not create order.');
             $oid=(int)$wpdb->insert_id;
             foreach($normalized as $x){

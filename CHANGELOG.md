@@ -1,3 +1,11 @@
+## 0.13.0 — Kitchen workflow foundation
+- Takeout orders progress to Picked Up (instead of Served); dine-in orders progress to Served.
+- Added a Kitchen navigation link for authorized front-end RMS users (opens the admin Kitchen board).
+- Added separate payment_status, fulfillment_status and sales_channel columns to orders.
+- Added paid-only Kitchen Display with server-validated Queued → Preparing → Ready → Served transitions.
+- Existing held orders stay unpaid and consume no stock. Existing completed orders remain paid.
+- Does not yet implement recipe-aware modifiers, discounts, online ordering, or full order state engine.
+
 # Changelog
 
 ## 0.12.2

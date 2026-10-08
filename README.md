@@ -200,3 +200,8 @@ The payment panel emphasizes Total, Cash Tendered, and live Change, and includes
 
 ### v0.12.1 Data Integrity & Searchable Builders
 Ingredient, Recipe, and Product/Menu names are protected against duplicate records using case-insensitive, trimmed comparisons. A Recipe also cannot contain the same Ingredient twice. Recipe Ingredient selection and Product Recipe/Cost Basis selection now include a lightweight searchable selector without third-party JavaScript dependencies.
+
+
+## Kitchen workflow (v0.13.0 foundation)
+
+The Orders table now includes independent `payment_status`, `fulfillment_status` and `sales_channel` fields. New POS checkouts are recorded as paid and queued for kitchen; held orders remain unpaid/not started. Authorized users can open **RMS → Kitchen** to move paid orders through Queued → Preparing → Ready → Served (Dine-in) or Picked Up (Takeout). This version does not yet change POS payment capture or implement external payment verification. Modifier recipe consumption, promotions, and WooCommerce sync are deferred to the next incremental releases.

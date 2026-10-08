@@ -37,6 +37,7 @@ class BC_RMS_Frontend {
               <?php if(current_user_can('bc_view_rms')):?><button class="bc-app-tab" data-view="dashboard">Dashboard</button><?php endif;?>
               <?php if(current_user_can('bc_use_pos')):?><button class="bc-app-tab active" data-view="pos">POS</button><?php endif;?>
               <?php if(current_user_can('bc_view_orders')):?><a href="<?php echo esc_url(admin_url('admin.php?page=bc-rms-orders')); ?>">Orders</a><?php endif;?>
+              <?php if(current_user_can('bc_view_orders')):?><a href="<?php echo esc_url(admin_url('admin.php?page=bc-rms-kitchen')); ?>">Kitchen</a><?php endif;?>
               <?php if(current_user_can('bc_view_inventory')):?><a href="<?php echo esc_url(admin_url('admin.php?page=bc-rms-inventory')); ?>">Inventory</a><?php endif;?>
               <?php if(current_user_can('bc_manage_inventory')):?><a href="<?php echo esc_url(admin_url('admin.php?page=bc-rms-purchase-orders')); ?>">Purchasing</a><?php endif;?>
             </nav>

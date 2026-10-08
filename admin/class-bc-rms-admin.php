@@ -12,6 +12,7 @@ class BC_RMS_Admin
         add_action('wp_ajax_bc_rms_hold_order', [__CLASS__, 'ajax_hold_order']);
         add_action('wp_ajax_bc_rms_held_orders', [__CLASS__, 'ajax_held_orders']);
         add_action('wp_ajax_bc_rms_resume_order', [__CLASS__, 'ajax_resume_order']);
+        add_action('admin_post_bc_rms_kitchen_transition',[__CLASS__,'kitchen_transition']);
         add_action('admin_init', [__CLASS__, 'delete']);
         add_action('admin_enqueue_scripts', [__CLASS__, 'assets']);
     }
@@ -35,6 +36,7 @@ class BC_RMS_Admin
         add_submenu_page('bc-rms', 'Menu Categories', 'Menu Categories', 'bc_manage_products', 'bc-rms-product-categories', [__CLASS__, 'product_categories']);
         add_submenu_page('bc-rms', 'POS', 'POS', 'bc_use_pos', 'bc-rms-pos', [__CLASS__, 'pos']);
         add_submenu_page('bc-rms', 'Orders', 'Orders', 'bc_view_orders', 'bc-rms-orders', [__CLASS__, 'orders']);
+        add_submenu_page('bc-rms','Kitchen Display','Kitchen','bc_view_orders','bc-rms-kitchen',[__CLASS__,'kitchen']);
         add_submenu_page('bc-rms', 'Inventory', 'Inventory', 'bc_view_inventory', 'bc-rms-inventory', [__CLASS__, 'inventory']);
         add_submenu_page('bc-rms', 'Receive Stock', 'Receive Stock', 'bc_manage_inventory', 'bc-rms-receive-stock', [__CLASS__, 'receive_stock']);
         add_submenu_page('bc-rms', 'Purchase Orders', 'Purchase Orders', 'bc_manage_inventory', 'bc-rms-purchase-orders', [__CLASS__, 'purchase_orders']);
@@ -677,6 +679,31 @@ class BC_RMS_Admin
         if(!current_user_can('bc_use_pos')) wp_send_json_error(['message'=>'Not allowed.'],403);
         check_ajax_referer('bc_rms_pos','nonce');$id=absint($_POST['id']??0);$p=BC_RMS_POS_Service::held_order_payload($id);
         if(!$p)wp_send_json_error(['message'=>'Held order not found.'],404);BC_RMS_POS_Service::delete_held($id);wp_send_json_success($p);
+    }
+
+    public static function kitchen_transition(){
+        if(!current_user_can('bc_view_orders'))wp_die('Not allowed.');
+        check_admin_referer('bc_rms_kitchen_transition');
+        global $wpdb;$t=BC_RMS_DB::table('orders');$id=absint($_POST['order_id']??0);$next=sanitize_key($_POST['next']??'');
+        $o=$wpdb->get_row($wpdb->prepare("SELECT status,payment_status,fulfillment_status,order_type FROM $t WHERE id=%d",$id));
+        $allowed=['queued'=>'preparing','preparing'=>'ready','ready'=>($o && $o->order_type==='takeout'?'picked_up':'served')];
+        if(!$o || $o->status!=='completed' || $o->payment_status!=='paid' || !isset($allowed[$o->fulfillment_status]) || $allowed[$o->fulfillment_status]!==$next)wp_die('Invalid kitchen transition.');
+        $wpdb->update($t,['fulfillment_status'=>$next,'updated_at'=>current_time('mysql')],['id'=>$id]);
+        wp_safe_redirect(admin_url('admin.php?page=bc-rms-kitchen'));exit;
+    }
+    public static function kitchen(){
+        if(!current_user_can('bc_view_orders'))wp_die('Not allowed.');
+        global $wpdb;$t=BC_RMS_DB::table('orders');$it=BC_RMS_DB::table('order_items');
+        echo '<div class="wrap bc-wrap"><h1>Kitchen Display</h1><p>Paid orders only. Kitchen progression: Queued → Preparing → Ready → Served.</p><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px">';
+        foreach(['queued'=>'Queued','preparing'=>'Preparing','ready'=>'Ready'] as $status=>$label){
+            echo '<section class="bc-card"><h2>'.esc_html($label).'</h2>';
+            $rows=$wpdb->get_results($wpdb->prepare("SELECT * FROM $t WHERE status='completed' AND payment_status='paid' AND fulfillment_status=%s ORDER BY created_at ASC LIMIT 80",$status));
+            if(!$rows)echo '<p>No orders.</p>';
+            foreach($rows as $o){echo '<article style="border-top:1px solid #ddd;padding:12px 0"><strong>'.esc_html($o->order_number).'</strong><p>'.esc_html(ucwords(str_replace('_',' ',$o->order_type))).' · '.esc_html($o->created_at).'</p><ul>';
+                foreach($wpdb->get_results($wpdb->prepare("SELECT quantity,product_name,variant_name,notes FROM $it WHERE order_id=%d",$o->id)) as $line)echo '<li>'.esc_html($line->quantity.' × '.$line->product_name.($line->variant_name?' — '.$line->variant_name:'').($line->notes?' ('.$line->notes.')':'')).'</li>';
+                echo '</ul><form method="post" action="'.esc_url(admin_url('admin-post.php')).'">';wp_nonce_field('bc_rms_kitchen_transition');echo '<input type="hidden" name="action" value="bc_rms_kitchen_transition"><input type="hidden" name="order_id" value="'.absint($o->id).'"><input type="hidden" name="next" value="'.esc_attr(['queued'=>'preparing','preparing'=>'ready','ready'=>($o->order_type==='takeout'?'picked_up':'served')][$status]).'">';submit_button(esc_html(['queued'=>'Start Preparing','preparing'=>'Mark Ready','ready'=>($o->order_type==='takeout'?'Mark Picked Up':'Mark Served')][$status]),'primary','submit',false);echo '</form></article>';
+            }echo '</section>';
+        }echo '</div></div>';
     }
 
     public static function orders()
