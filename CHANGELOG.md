@@ -1,3 +1,11 @@
+## v0.13.5 — Front-end Kitchen & Transition Audit
+- Front-end Kitchen board in the RMS shortcode; paid orders only.
+- Kitchen event history persisted for each successful transition.
+- Server-side atomic status transition validation and concurrency protection.
+- Admin kitchen shares the same transition service.
+- Existing order status and paid-only inventory behavior preserved (no migration of legacy completed status).
+- Does not yet implement WooCommerce, statutory discount reporting or full order-state refactor.
+
 ## 0.13.4 — Statutory POS JavaScript Hotfix
 - Declare statutoryApplied state before first POS render and during apply/clear.
 - Clear prior statutory amount when cart changes or statutory discount is removed.

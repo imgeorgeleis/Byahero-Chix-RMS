@@ -17,6 +17,10 @@ class BC_RMS_Frontend {
         if(!$post || !has_shortcode($post->post_content,'byahero_chix_rms')) return;
         wp_enqueue_style('bc-rms-app',BC_RMS_URL.'assets/css/frontend.css',[],BC_RMS_VERSION);
         wp_enqueue_script('bc-rms-pos',BC_RMS_URL.'assets/js/pos.js',[],BC_RMS_VERSION,true);
+        if(current_user_can('bc_view_orders')){
+            wp_enqueue_script('bc-rms-kitchen',BC_RMS_URL.'assets/js/kitchen.js',[],BC_RMS_VERSION,true);
+            wp_localize_script('bc-rms-kitchen','BCRMS_KITCHEN',['ajaxUrl'=>admin_url('admin-ajax.php'),'nonce'=>wp_create_nonce('bc_rms_kitchen')]);
+        }
         wp_localize_script('bc-rms-pos','BCRMS_POS',[
             'ajaxUrl'=>admin_url('admin-ajax.php'),
             'nonce'=>wp_create_nonce('bc_rms_pos'),
@@ -37,12 +41,13 @@ class BC_RMS_Frontend {
               <?php if(current_user_can('bc_view_rms')):?><button class="bc-app-tab" data-view="dashboard">Dashboard</button><?php endif;?>
               <?php if(current_user_can('bc_use_pos')):?><button class="bc-app-tab active" data-view="pos">POS</button><?php endif;?>
               <?php if(current_user_can('bc_view_orders')):?><a href="<?php echo esc_url(admin_url('admin.php?page=bc-rms-orders')); ?>">Orders</a><?php endif;?>
-              <?php if(current_user_can('bc_view_orders')):?><a href="<?php echo esc_url(admin_url('admin.php?page=bc-rms-kitchen')); ?>">Kitchen</a><?php endif;?>
+              <?php if(current_user_can('bc_view_orders')):?><button class="bc-app-tab" data-view="kitchen">Kitchen</button><?php endif;?>
               <?php if(current_user_can('bc_view_inventory')):?><a href="<?php echo esc_url(admin_url('admin.php?page=bc-rms-inventory')); ?>">Inventory</a><?php endif;?>
               <?php if(current_user_can('bc_manage_inventory')):?><a href="<?php echo esc_url(admin_url('admin.php?page=bc-rms-purchase-orders')); ?>">Purchasing</a><?php endif;?>
             </nav>
             <main class="bc-app-main">
-              <section id="bc-view-dashboard" class="bc-app-view" hidden><h1>Dashboard</h1><div class="bc-dashboard-cards"><article><small>System</small><strong>Ready</strong><span>Operational dashboard foundation</span></article><article><small>POS</small><strong>Online</strong><span>Paid orders commit inventory</span></article><article><small>Version</small><strong>0.12.0</strong><span>Front-end RMS shell</span></article></div></section>
+              <section id="bc-view-dashboard" class="bc-app-view" hidden><h1>Dashboard</h1><div class="bc-dashboard-cards"><article><small>System</small><strong>Ready</strong><span>Operational dashboard foundation</span></article><article><small>POS</small><strong>Online</strong><span>Paid orders commit inventory</span></article><article><small>Version</small><strong>0.13.5</strong><span>Front-end RMS shell</span></article></div></section>
+              <?php if(current_user_can('bc_view_orders')):?><section id="bc-view-kitchen" class="bc-app-view" hidden><h1>Kitchen Display</h1><p>Paid orders only · Queued → Preparing → Ready → Served / Picked Up</p><button type="button" id="bc-kitchen-refresh">Refresh Orders</button><div id="bc-kitchen-message" role="status"></div><div id="bc-kitchen-board" class="bc-kitchen-board"></div></section><?php endif;?>
               <section id="bc-view-pos" class="bc-app-view">
                 <div class="bc-pos bc-pos-frontend">
                   <div class="bc-pos-layout"><section class="bc-pos-menu"><div class="bc-pos-toolbar"><input id="bc-pos-search" type="search" placeholder="Search menu..."><select id="bc-pos-category"><option value="">All Categories</option><?php $cats=[];foreach($catalog as $x)if(!empty($x['category_name']))$cats[$x['category_name']]=1;foreach(array_keys($cats) as $c)echo '<option>'.esc_html($c).'</option>';?></select></div><div id="bc-pos-products" class="bc-pos-products"></div></section>

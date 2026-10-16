@@ -15,6 +15,8 @@ class BC_RMS_Admin
         add_action('wp_ajax_bc_rms_held_orders', [__CLASS__, 'ajax_held_orders']);
         add_action('wp_ajax_bc_rms_resume_order', [__CLASS__, 'ajax_resume_order']);
         add_action('admin_post_bc_rms_kitchen_transition',[__CLASS__,'kitchen_transition']);
+        add_action('wp_ajax_bc_rms_kitchen_board',[__CLASS__,'ajax_kitchen_board']);
+        add_action('wp_ajax_bc_rms_kitchen_advance',[__CLASS__,'ajax_kitchen_advance']);
         add_action('admin_init', [__CLASS__, 'delete']);
         add_action('admin_enqueue_scripts', [__CLASS__, 'assets']);
     }
@@ -730,14 +732,23 @@ class BC_RMS_Admin
         if(!$p)wp_send_json_error(['message'=>'Held order not found.'],404);BC_RMS_POS_Service::delete_held($id);wp_send_json_success($p);
     }
 
+    public static function ajax_kitchen_board(){
+        check_ajax_referer('bc_rms_kitchen','nonce');
+        if(!current_user_can('bc_view_orders'))wp_send_json_error(['message'=>'Not allowed.'],403);
+        wp_send_json_success(BC_RMS_Kitchen_Service::board());
+    }
+    public static function ajax_kitchen_advance(){
+        check_ajax_referer('bc_rms_kitchen','nonce');
+        if(!current_user_can('bc_view_orders'))wp_send_json_error(['message'=>'Not allowed.'],403);
+        $r=BC_RMS_Kitchen_Service::advance(absint($_POST['order_id']??0),sanitize_key($_POST['next']??''));
+        if(is_wp_error($r))wp_send_json_error(['message'=>$r->get_error_message()],409);
+        wp_send_json_success(['updated'=>true]);
+    }
     public static function kitchen_transition(){
         if(!current_user_can('bc_view_orders'))wp_die('Not allowed.');
         check_admin_referer('bc_rms_kitchen_transition');
-        global $wpdb;$t=BC_RMS_DB::table('orders');$id=absint($_POST['order_id']??0);$next=sanitize_key($_POST['next']??'');
-        $o=$wpdb->get_row($wpdb->prepare("SELECT status,payment_status,fulfillment_status,order_type FROM $t WHERE id=%d",$id));
-        $allowed=['queued'=>'preparing','preparing'=>'ready','ready'=>($o && $o->order_type==='takeout'?'picked_up':'served')];
-        if(!$o || $o->status!=='completed' || $o->payment_status!=='paid' || !isset($allowed[$o->fulfillment_status]) || $allowed[$o->fulfillment_status]!==$next)wp_die('Invalid kitchen transition.');
-        $wpdb->update($t,['fulfillment_status'=>$next,'updated_at'=>current_time('mysql')],['id'=>$id]);
+        $r=BC_RMS_Kitchen_Service::advance(absint($_POST['order_id']??0),sanitize_key($_POST['next']??''));
+        if(is_wp_error($r))wp_die(esc_html($r->get_error_message()));
         wp_safe_redirect(admin_url('admin.php?page=bc-rms-kitchen'));exit;
     }
     public static function kitchen(){

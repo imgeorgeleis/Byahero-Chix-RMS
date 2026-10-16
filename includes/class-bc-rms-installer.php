@@ -4,7 +4,14 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
 class BC_RMS_Installer {
     public static function activate(){ self::install(); self::roles(); }
     public static function maybe_upgrade(){ if(version_compare((string)get_option('bc_rms_db_version','0.0.0'),BC_RMS_DB_VERSION,'<')) { self::install(); self::roles(); } }
-    private static function install(){ self::tables(); self::migrate_packaging_inventory_columns(); self::migrate_purchase_order_resource_columns(); self::migrate_supplier_catalog_columns(); self::migrate_product_image_column(); self::migrate_order_workflow(); self::migrate_variant_modifiers(); self::migrate_discounts(); self::migrate_statutory_discounts(); self::seed(); update_option('bc_rms_db_version',BC_RMS_DB_VERSION); }
+    private static function install(){ self::tables(); self::migrate_packaging_inventory_columns(); self::migrate_purchase_order_resource_columns(); self::migrate_supplier_catalog_columns(); self::migrate_product_image_column(); self::migrate_order_workflow(); self::migrate_variant_modifiers(); self::migrate_discounts(); self::migrate_statutory_discounts(); self::migrate_kitchen_history(); self::seed(); update_option('bc_rms_db_version',BC_RMS_DB_VERSION); }
+    private static function migrate_kitchen_history(){
+        global $wpdb;
+        $table=BC_RMS_DB::table('kitchen_events');
+        require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+        $charset=$wpdb->get_charset_collate();
+        dbDelta("CREATE TABLE $table (id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,order_id BIGINT UNSIGNED NOT NULL,from_status VARCHAR(25) NOT NULL,to_status VARCHAR(25) NOT NULL,user_id BIGINT UNSIGNED NOT NULL,created_at DATETIME NOT NULL,PRIMARY KEY  (id),KEY order_id (order_id),KEY created_at (created_at)) $charset;");
+    }
     private static function migrate_variant_modifiers(){
         global $wpdb;
         $v=BC_RMS_DB::table('product_variants');$m=BC_RMS_DB::table('modifiers');

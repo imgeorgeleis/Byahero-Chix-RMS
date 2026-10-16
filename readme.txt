@@ -2,7 +2,7 @@
 Contributors: georgeleis
 Tags: restaurant, pos, inventory, recipe, costing
 Requires at least: 6.4
-Stable tag: 0.13.4
+Stable tag: 0.13.5
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -175,3 +175,6 @@ For older releases, see CHANGELOG.md.
 
 = 0.12.2 =
 * Search and pagination for major RMS admin data tables.
+
+= 0.13.5 =
+* Added front-end Kitchen board with order status transition audit trail.

@@ -1,3 +1,11 @@
+## v0.13.5 — Front-end Kitchen & Transition Audit
+- Front-end Kitchen board in the RMS shortcode; paid orders only.
+- Kitchen event history persisted for each successful transition.
+- Server-side atomic status transition validation and concurrency protection.
+- Admin kitchen shares the same transition service.
+- Existing order status and paid-only inventory behavior preserved (no migration of legacy completed status).
+- Does not yet implement WooCommerce, statutory discount reporting or full order-state refactor.
+
 # Byahero Chix RMS
 
 Byahero Chix RMS is an open-source restaurant management system for WordPress. The project is being built incrementally from master data and recipe costing toward inventory, purchasing, POS, kitchen, payments, and reporting.
