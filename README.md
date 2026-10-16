@@ -214,3 +214,7 @@ The Orders table now includes independent `payment_status`, `fulfillment_status`
 - The order transaction checks combined inventory across products, variants, modifiers, and packaging before accepting cash/payment. Held orders do not consume stock. Voids reverse actual saved sale movements.
 - This first release does NOT support batch-prepared sauce stock; it consumes underlying sauce-recipe ingredients. Do not apply both a base recipe and modifier to the same physical sauce portion or stock will be double counted.
 - A recipe may contain other components such as rice; using multiplier 2 doubles the entire parent recipe. Use a chicken-only base recipe or variant-specific recipe when sides must remain single.
+
+
+### v0.13.2 POS Promotions (preview)
+Create a voucher via RMS > Promotions. Enter the code in the POS and click Apply. The server recalculates on paid checkout and records the code, type and discount. Promo usage increments within the checkout transaction; unpaid holds do not spend a voucher. This release does **not** compute Senior/PWD VAT exemption or statutory discounts, and does not yet synchronize codes to WooCommerce. Verify your local tax/legal configuration before live use.

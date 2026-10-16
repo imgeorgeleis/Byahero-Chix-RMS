@@ -7,6 +7,7 @@ class BC_RMS_Admin
     {
         add_action('admin_menu', [__CLASS__, 'menu']);
         add_action('admin_init', [__CLASS__, 'save']);
+        add_action('wp_ajax_bc_rms_promo_quote', [__CLASS__, 'ajax_promo_quote']);
         add_action('wp_ajax_bc_rms_checkout', [__CLASS__, 'ajax_checkout']);
         add_action('wp_ajax_bc_rms_pos_catalog', [__CLASS__, 'ajax_pos_catalog']);
         add_action('wp_ajax_bc_rms_hold_order', [__CLASS__, 'ajax_hold_order']);
@@ -47,6 +48,7 @@ class BC_RMS_Admin
         add_submenu_page('bc-rms', 'Variants', 'Variants', 'bc_manage_products', 'bc-rms-variants', [__CLASS__, 'variants']);
         add_submenu_page('bc-rms', 'Modifiers', 'Modifiers', 'bc_manage_modifiers', 'bc-rms-modifiers', [__CLASS__, 'modifiers']);
         add_submenu_page('bc-rms', 'Units', 'Units', 'bc_manage_units', 'bc-rms-units', [__CLASS__, 'units']);
+        add_submenu_page('bc-rms','Promotions','Promotions','bc_manage_settings','bc-rms-promotions',[__CLASS__,'promotions']);
         add_submenu_page('bc-rms', 'Settings', 'Settings', 'bc_manage_settings', 'bc-rms-settings', [__CLASS__, 'settings']);
     }
     private static function nonce()
@@ -642,6 +644,35 @@ class BC_RMS_Admin
         $mov=$wpdb->get_results("SELECT m.*,p.name FROM $mt m JOIN $pt p ON p.id=m.packaging_id ORDER BY m.id DESC LIMIT 200");foreach($mov as $m)echo '<tr><td>'.esc_html($m->created_at).'</td><td>'.esc_html($m->name).'</td><td>'.esc_html(strtoupper(str_replace('_',' ',$m->movement_type))).'</td><td>'.($m->quantity_delta>0?'+':'').number_format($m->quantity_delta,4).'</td><td>'.esc_html($m->reference_code?:'—').'</td><td>'.esc_html($m->notes?:'—').'</td></tr>';echo '</table></div></div>';
     }
 
+    public static function promotions(){
+        if(!current_user_can('bc_manage_settings'))wp_die('Not allowed.');
+        global $wpdb;$t=BC_RMS_DB::table('discount_rules');
+        if($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['bc_save_promo'])){
+            check_admin_referer('bc_rms_promo');
+            $code=strtoupper(preg_replace('/[^A-Z0-9_-]/','',strtoupper(sanitize_text_field(wp_unslash($_POST['code']??'')))));
+            $type=sanitize_key($_POST['discount_type']??'');
+            $value=max(0,(float)($_POST['discount_value']??0));
+            if(!$code||!in_array($type,['fixed','percent'],true)||$value<=0||($type==='percent'&&$value>100)){
+                echo '<div class="notice notice-error"><p>Invalid promotion configuration.</p></div>';
+            } else {
+                $d=['code'=>$code,'name'=>sanitize_text_field(wp_unslash($_POST['name']??'')),'discount_type'=>$type,'discount_value'=>$value,'min_subtotal'=>max(0,(float)($_POST['min_subtotal']??0)),'max_discount'=>max(0,(float)($_POST['max_discount']??0)),'start_date'=>sanitize_text_field($_POST['start_date']??'')?:null,'end_date'=>sanitize_text_field($_POST['end_date']??'')?:null,'usage_limit'=>absint($_POST['usage_limit']??0),'active'=>1,'created_at'=>current_time('mysql'),'updated_at'=>current_time('mysql')];
+                $ok=$wpdb->insert($t,$d);
+                echo $ok?'<div class="notice notice-success"><p>Promotion created.</p></div>':'<div class="notice notice-error"><p>Could not save promotion. Check for duplicate code.</p></div>';
+            }
+        }
+        echo '<div class="wrap bc-wrap"><h1>Promotions &amp; Voucher Codes</h1><p>Basic fixed and percentage discounts only. Statutory Senior/PWD tax treatment is not enabled in this release.</p><div class="bc-card"><h2>Create Promotion</h2><form method="post">';wp_nonce_field('bc_rms_promo');echo '<input type="hidden" name="bc_save_promo" value="1">';
+        foreach(['code'=>'Voucher Code','name'=>'Campaign Name'] as $k=>$l)echo '<p><label>'.esc_html($l).' <input name="'.esc_attr($k).'" required></label></p>';
+        echo '<p><label>Type <select name="discount_type"><option value="fixed">Fixed amount</option><option value="percent">Percentage</option></select></label></p>';
+        foreach(['discount_value'=>'Value','min_subtotal'=>'Minimum Subtotal','max_discount'=>'Maximum Discount (0 = none)','usage_limit'=>'Global Usage Limit (0 = unlimited)'] as $k=>$l)echo '<p><label>'.esc_html($l).' <input type="number" min="0" step="'.($k==='usage_limit'?'1':'0.01').'" name="'.esc_attr($k).'" value="0"></label></p>';
+        echo '<p><label>From <input type="date" name="start_date"></label> <label>Until <input type="date" name="end_date"></label></p>';submit_button('Create Promotion');echo '</form></div><h2>Promotions</h2><table class="widefat striped"><thead><tr><th>Code</th><th>Type</th><th>Value</th><th>Used / Limit</th><th>Active</th></tr></thead><tbody>';
+        foreach($wpdb->get_results("SELECT * FROM $t ORDER BY id DESC LIMIT 500") as $r)echo '<tr><td>'.esc_html($r->code).'</td><td>'.esc_html($r->discount_type).'</td><td>'.esc_html($r->discount_value).'</td><td>'.absint($r->usage_count).' / '.($r->usage_limit?absint($r->usage_limit):'∞').'</td><td>'.($r->active?'Yes':'No').'</td></tr>';
+        echo '</tbody></table></div>';
+    }
+    public static function ajax_promo_quote(){
+        check_ajax_referer('bc_rms_pos','nonce');if(!current_user_can('bc_use_pos'))wp_send_json_error(['message'=>'Not allowed.'],403);
+        $q=BC_RMS_Discount_Service::quote((float)($_POST['subtotal']??0),sanitize_text_field(wp_unslash($_POST['code']??'')));
+        if(is_wp_error($q))wp_send_json_error(['message'=>$q->get_error_message()],400);wp_send_json_success($q);
+    }
     public static function pos()
     {
         if(!current_user_can('bc_use_pos')) wp_die('Not allowed.');
@@ -650,7 +681,7 @@ class BC_RMS_Admin
         wp_localize_script('bc-rms-pos','BCRMS_POS',['ajaxUrl'=>admin_url('admin-ajax.php'),'nonce'=>wp_create_nonce('bc_rms_pos'),'catalog'=>$catalog,'currency'=>'₱']);
         echo '<div class="wrap bc-wrap bc-pos"><h1>Byahero Chix POS <small>v0.12.1</small></h1><div class="bc-pos-layout"><section><div class="bc-pos-toolbar"><input id="bc-pos-search" type="search" placeholder="Search menu..."><select id="bc-pos-category"><option value="">All Categories</option>';
         $cats=[];foreach($catalog as $x)if(!empty($x['category_name']))$cats[$x['category_name']]=1;foreach(array_keys($cats) as $c)echo '<option>'.esc_html($c).'</option>';
-        echo '</select></div><div id="bc-pos-products" class="bc-pos-products"></div></section><aside class="bc-pos-cart"><h2>Current Order</h2><div class="bc-pos-order-type"><button type="button" data-type="dine_in" class="active">Dine-in</button><button type="button" data-type="takeout">Takeout</button></div><div id="bc-pos-cart-items"></div><div class="bc-pos-totals"><p><span>Subtotal</span><strong id="bc-pos-subtotal">₱0.00</strong></p><p><span>Discount</span><input id="bc-pos-discount" type="number" min="0" step="0.01" value="0"></p><p class="total"><span>Total</span><strong id="bc-pos-total">₱0.00</strong></p></div><label>Payment<select id="bc-pos-payment"><option value="cash">Cash</option><option value="gcash">GCash</option><option value="card">Card</option><option value="other">Other</option></select></label><label>Amount Tendered<input id="bc-pos-tendered" type="number" min="0" step="0.01"></label><div class="bc-change-box"><span>CHANGE</span><strong id="bc-pos-change">₱0.00</strong></div><div class="bc-quick-cash"><button type="button" data-cash="exact">Exact</button><button type="button" data-cash="100">₱100</button><button type="button" data-cash="200">₱200</button><button type="button" data-cash="500">₱500</button><button type="button" data-cash="1000">₱1,000</button></div><div class="bc-pos-actions"><button id="bc-pos-hold" class="button button-large" type="button">Hold Order</button><button id="bc-pos-held" class="button button-large" type="button">Held Orders</button></div><button id="bc-pos-checkout" class="button button-primary button-hero">Complete Order</button><div id="bc-pos-message"></div></aside></div><div id="bc-pos-modal" class="bc-pos-modal" hidden><div class="bc-pos-modal-card"><button id="bc-pos-modal-close" type="button">×</button><div id="bc-pos-modal-body"></div></div></div></div>';
+        echo '</select></div><div id="bc-pos-products" class="bc-pos-products"></div></section><aside class="bc-pos-cart"><h2>Current Order</h2><div class="bc-pos-order-type"><button type="button" data-type="dine_in" class="active">Dine-in</button><button type="button" data-type="takeout">Takeout</button></div><div id="bc-pos-cart-items"></div><div class="bc-pos-totals"><p><span>Subtotal</span><strong id="bc-pos-subtotal">₱0.00</strong></p><p><span>Discount</span><input id="bc-pos-discount" type="number" min="0" step="0.01" value="0" readonly></p><p><label>Promo / Voucher Code <input id="bc-pos-promo" type="text" placeholder="e.g. WELCOME10"></label><button type="button" id="bc-pos-apply-promo">Apply</button><button type="button" id="bc-pos-clear-promo">Clear</button></p><p class="total"><span>Total</span><strong id="bc-pos-total">₱0.00</strong></p></div><label>Payment<select id="bc-pos-payment"><option value="cash">Cash</option><option value="gcash">GCash</option><option value="card">Card</option><option value="other">Other</option></select></label><label>Amount Tendered<input id="bc-pos-tendered" type="number" min="0" step="0.01"></label><div class="bc-change-box"><span>CHANGE</span><strong id="bc-pos-change">₱0.00</strong></div><div class="bc-quick-cash"><button type="button" data-cash="exact">Exact</button><button type="button" data-cash="100">₱100</button><button type="button" data-cash="200">₱200</button><button type="button" data-cash="500">₱500</button><button type="button" data-cash="1000">₱1,000</button></div><div class="bc-pos-actions"><button id="bc-pos-hold" class="button button-large" type="button">Hold Order</button><button id="bc-pos-held" class="button button-large" type="button">Held Orders</button></div><button id="bc-pos-checkout" class="button button-primary button-hero">Complete Order</button><div id="bc-pos-message"></div></aside></div><div id="bc-pos-modal" class="bc-pos-modal" hidden><div class="bc-pos-modal-card"><button id="bc-pos-modal-close" type="button">×</button><div id="bc-pos-modal-body"></div></div></div></div>';
     }
 
     public static function ajax_pos_catalog()

@@ -144,7 +144,9 @@ class BC_RMS_POS_Service {
             $normalized[]=['product'=>$product,'variant'=>$variant,'qty'=>$qty,'unit_price'=>$price,'unit_cost'=>$cost,'line_total'=>$line,'mods'=>$mods,'notes'=>sanitize_text_field($raw['notes']??'')];
         }
 
-        $discount=max(0,(float)($payload['discount_total']??0));$discount=min($discount,$subtotal);
+        $promo=BC_RMS_Discount_Service::quote($subtotal,$payload['promo_code']??'');
+        if(is_wp_error($promo))return $promo;
+        $discount=$promo['discount'];
         $tax=0;$total=max(0,$subtotal-$discount+$tax);
         $method=in_array($payload['payment_method']??'cash',['cash','gcash','card','other'],true)?$payload['payment_method']:'cash';
         $tender=max(0,(float)($payload['amount_tendered']??0));
@@ -170,7 +172,7 @@ class BC_RMS_POS_Service {
                 $exists=(int)$wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM $ot WHERE order_number=%s",$order_number));
                 $seq++;
             }while($exists);
-            $ok=$wpdb->insert($ot,['uuid'=>BC_RMS_DB::uuid(),'order_number'=>$order_number,'status'=>'completed','payment_status'=>'paid','fulfillment_status'=>'queued','sales_channel'=>'pos','order_type'=>in_array($payload['order_type']??'dine_in',['dine_in','takeout'],true)?$payload['order_type']:'dine_in','subtotal'=>$subtotal,'discount_total'=>$discount,'tax_total'=>$tax,'total'=>$total,'payment_method'=>$method,'amount_tendered'=>$tender,'change_due'=>$change,'cashier_user_id'=>get_current_user_id(),'notes'=>sanitize_textarea_field($payload['notes']??''),'completed_at'=>$now,'created_at'=>$now,'updated_at'=>$now]);
+            $ok=$wpdb->insert($ot,['uuid'=>BC_RMS_DB::uuid(),'order_number'=>$order_number,'status'=>'completed','payment_status'=>'paid','fulfillment_status'=>'queued','sales_channel'=>'pos','order_type'=>in_array($payload['order_type']??'dine_in',['dine_in','takeout'],true)?$payload['order_type']:'dine_in','subtotal'=>$subtotal,'discount_total'=>$discount,'discount_code'=>$promo['code'],'discount_type'=>$promo['type'],'discount_data'=>wp_json_encode($promo),'tax_total'=>$tax,'total'=>$total,'payment_method'=>$method,'amount_tendered'=>$tender,'change_due'=>$change,'cashier_user_id'=>get_current_user_id(),'notes'=>sanitize_textarea_field($payload['notes']??''),'completed_at'=>$now,'created_at'=>$now,'updated_at'=>$now]);
             if(!$ok) throw new Exception($wpdb->last_error?:'Could not create order.');
             $oid=(int)$wpdb->insert_id;
             foreach($normalized as $x){
@@ -178,6 +180,10 @@ class BC_RMS_POS_Service {
                 if(!$wpdb->insert($oit,['uuid'=>BC_RMS_DB::uuid(),'order_id'=>$oid,'product_id'=>$p->id,'variant_id'=>$v?$v->id:null,'product_name'=>$p->name,'variant_name'=>$v?$v->name:null,'sku'=>$v&&$v->sku?$v->sku:$p->sku,'quantity'=>$x['qty'],'unit_price'=>$x['unit_price'],'unit_cost'=>$x['unit_cost'],'line_total'=>$x['line_total'],'notes'=>$x['notes'],'created_at'=>$now])) throw new Exception($wpdb->last_error?:'Could not create order item.');
                 $oi=(int)$wpdb->insert_id;
                 foreach($x['mods'] as $m) if(!$wpdb->insert($omt,['uuid'=>BC_RMS_DB::uuid(),'order_item_id'=>$oi,'modifier_id'=>$m->id,'modifier_name'=>$m->name,'price_adjustment'=>$m->price_adjustment,'cost_adjustment'=>$m->cost_adjustment,'created_at'=>$now])) throw new Exception($wpdb->last_error?:'Could not save modifier.');
+            }
+            if(!empty($promo['id'])){
+                $dt=BC_RMS_DB::table('discount_rules');$updated=$wpdb->query($wpdb->prepare("UPDATE $dt SET usage_count=usage_count+1 WHERE id=%d AND active=1 AND (usage_limit=0 OR usage_count<usage_limit)",$promo['id']));
+                if($updated!==1)throw new Exception('Voucher usage limit reached.');
             }
             BC_RMS_Inventory_Service::consume_order($oid);
             $wpdb->query('COMMIT');

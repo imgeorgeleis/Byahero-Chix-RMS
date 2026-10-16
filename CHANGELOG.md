@@ -1,3 +1,10 @@
+## 0.13.2
+- Restore missing admin and front-end CSS assets from the supplied v0.13.0 working archive.
+- Basic server-validated fixed/percentage promotion codes, campaign setup, date windows, minimum spend, limits and paid-checkout usage tracking.
+- Promo quote input on both admin and front-end POS.
+- Sale snapshot of voucher data.
+- Senior/PWD statutory pricing and WooCommerce synchronization remain future work; not represented as supported.
+
 ## 0.13.1 — Inventory-Aware Variants & Modifiers
 - Variant recipe multiplier and optional recipe override; default multiplier 1 preserves older variants.
 - Modifiers can reference recipe servings or ingredient quantity/unit.
