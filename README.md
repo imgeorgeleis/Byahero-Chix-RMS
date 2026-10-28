@@ -237,3 +237,8 @@ Open RMS → Supplier Barcodes and link a code to an active supplier catalog ite
 
 ## v0.14.0 POS Barcode + Stocktaking
 Add a unique Product Barcode in Products / Menu. Scan it in the POS Barcode field to open the configured product (variants/modifiers are still selected by the cashier). In RMS → Stocktaking, search or scan a supplier barcode, enter the physical quantity and reason, and explicitly confirm a ledger-based adjustment. The current system stock is verified again before posting to guard against stale counts. Camera scanning, label printing, and multi-user sessions remain planned.
+
+
+## v0.14.1 Camera scanning
+
+New **Scan with Camera** buttons appear on Supplier Barcodes registration, PO receiving, POS barcode field (admin and front-end), and Stocktaking. Camera uses the browser-native `BarcodeDetector` API, and requires HTTPS or localhost and user camera permission. Browser support differs; Chrome on Android is a good first test target. If unsupported, manually type the code or use a hardware scanner. Video is decoded locally; no images are uploaded. PO scans stage quantities only; users must still submit the receiving form.

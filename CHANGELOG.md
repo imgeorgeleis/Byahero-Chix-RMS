@@ -1,3 +1,8 @@
+## 0.14.1
+- Added browser camera scan buttons in Supplier Barcodes, PO receiving, POS, and Stocktaking.
+- Camera scanning uses browser BarcodeDetector with permission/security checks and proper stream cleanup.
+- Kept manual/hardware barcode fields as fallback and receiving confirmation safeguard.
+
 ## 0.14.0 — POS barcode and inventory stocktaking
 - Product barcode / GTIN saved against RMS menu products, unique identifier.
 - Barcode scanner input in admin POS and frontend POS; opens existing product configuration before cart addition.
