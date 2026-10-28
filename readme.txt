@@ -2,7 +2,7 @@
 Contributors: georgeleis
 Tags: restaurant, pos, inventory, recipe, costing
 Requires at least: 6.4
-Stable tag: 0.13.6
+Stable tag: 0.13.7
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -181,3 +181,6 @@ For older releases, see CHANGELOG.md.
 
 = 0.13.6 =
 * Kitchen auto-refresh every 5 seconds on visible Kitchen board (front-end and admin).
+
+= 0.13.7 =
+* Kitchen sound alerts (opt-in) and ticket aging counters.

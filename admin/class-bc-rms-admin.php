@@ -755,7 +755,7 @@ class BC_RMS_Admin
         if(!current_user_can('bc_view_orders'))wp_die('Not allowed.');
         wp_enqueue_script('bc-rms-kitchen',BC_RMS_URL.'assets/js/kitchen.js',[],BC_RMS_VERSION,true);
         wp_localize_script('bc-rms-kitchen','BCRMS_KITCHEN',['ajaxUrl'=>admin_url('admin-ajax.php'),'nonce'=>wp_create_nonce('bc_rms_kitchen')]);
-        echo '<div class="wrap bc-wrap"><h1>Kitchen Display</h1><p>Paid orders only · Queued → Preparing → Ready → Served / Picked Up</p><button type="button" class="button" id="bc-kitchen-refresh">Refresh Orders</button> <span id="bc-kitchen-auto-status" aria-live="polite">Auto-refresh: every 5 seconds</span><div id="bc-kitchen-message" role="status"></div><div id="bc-kitchen-board" class="bc-kitchen-board"></div></div>';
+        echo '<div class="wrap bc-wrap"><h1>Kitchen Display</h1><p>Paid orders only · Queued → Preparing → Ready → Served / Picked Up</p><button type="button" class="button" id="bc-kitchen-refresh">Refresh Orders</button> <button type="button" id="bc-kitchen-sound" aria-pressed="false">🔇 Enable Sound</button> <span id="bc-kitchen-auto-status" aria-live="polite">Auto-refresh: every 5 seconds</span><div id="bc-kitchen-message" role="status"></div><div id="bc-kitchen-board" class="bc-kitchen-board"></div></div>';
     }
 
     public static function orders()

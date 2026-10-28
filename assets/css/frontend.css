@@ -4,3 +4,6 @@
 
 /* v0.13.6 Kitchen auto-refresh status */
 #bc-kitchen-auto-status{display:inline-block;margin-left:12px;font-size:12px;color:#70665a}
+
+/* v0.13.7 kitchen ticket aging indicators */
+.bc-kitchen-timer{display:inline-block;margin:9px 0 5px;font-size:14px;font-weight:700;padding:4px 10px;border-radius:16px;background:#eef1f3;color:#343a40}.bc-kitchen-ticket.bc-kitchen-warning{border:2px solid #e8a13a!important}.bc-kitchen-warning .bc-kitchen-timer{background:#fff1d6;color:#794608}.bc-kitchen-ticket.bc-kitchen-critical{border:2px solid #d43e3e!important;box-shadow:0 0 0 2px #fce4e4}.bc-kitchen-critical .bc-kitchen-timer{background:#ffe3e3;color:#932222}#bc-kitchen-sound{margin:0 8px 8px;padding:7px 11px;border:1px solid #ccc;border-radius:6px;cursor:pointer}

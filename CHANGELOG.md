@@ -1,3 +1,9 @@
+## v0.13.7 — Kitchen Alerts & Ticket Timers
+- Opt-in sound alert for newly queued orders (no alert for initial page load).
+- Elapsed-time badges and 10/20-minute warning thresholds.
+- Retained 5-second visible-tab polling, manual refresh, payment-only kitchen queue and status audit.
+- No database or inventory changes.
+
 ## v0.13.6 — Kitchen Auto-Refresh
 - Kitchen boards refresh automatically every 5 seconds on active, visible pages.
 - Same real-time-style polling board in the front-end RMS and wp-admin Kitchen.

@@ -226,3 +226,6 @@ The Orders table now includes independent `payment_status`, `fulfillment_status`
 
 ### v0.13.2 POS Promotions (preview)
 Create a voucher via RMS > Promotions. Enter the code in the POS and click Apply. The server recalculates on paid checkout and records the code, type and discount. Promo usage increments within the checkout transaction; unpaid holds do not spend a voucher. This release does **not** compute Senior/PWD VAT exemption or statutory discounts, and does not yet synchronize codes to WooCommerce. Verify your local tax/legal configuration before live use.
+
+## 0.13.7 Kitchen Alerts
+Sound notifications require clicking Enable Sound in Kitchen; browsers block unprompted audio. New tickets after initial board load play a short chime. Ticket age uses original order creation time; warnings at 10m and 20m.
