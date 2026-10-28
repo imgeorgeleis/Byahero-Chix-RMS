@@ -4,7 +4,12 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
 class BC_RMS_Installer {
     public static function activate(){ self::install(); self::roles(); }
     public static function maybe_upgrade(){ if(version_compare((string)get_option('bc_rms_db_version','0.0.0'),BC_RMS_DB_VERSION,'<')) { self::install(); self::roles(); } }
-    private static function install(){ self::tables(); self::migrate_packaging_inventory_columns(); self::migrate_purchase_order_resource_columns(); self::migrate_supplier_catalog_columns(); self::migrate_product_image_column(); self::migrate_order_workflow(); self::migrate_variant_modifiers(); self::migrate_discounts(); self::migrate_statutory_discounts(); self::migrate_kitchen_history(); self::migrate_order_utc(); self::migrate_supplier_barcodes(); self::seed(); update_option('bc_rms_db_version',BC_RMS_DB_VERSION); }
+    private static function install(){ self::tables(); self::migrate_packaging_inventory_columns(); self::migrate_purchase_order_resource_columns(); self::migrate_supplier_catalog_columns(); self::migrate_product_image_column(); self::migrate_order_workflow(); self::migrate_variant_modifiers(); self::migrate_discounts(); self::migrate_statutory_discounts(); self::migrate_kitchen_history(); self::migrate_order_utc(); self::migrate_supplier_barcodes(); self::migrate_product_barcode(); self::seed(); update_option('bc_rms_db_version',BC_RMS_DB_VERSION); }
+    private static function migrate_product_barcode(){
+        global $wpdb;$t=BC_RMS_DB::table('products');
+        if(!$wpdb->get_var($wpdb->prepare('SHOW COLUMNS FROM `'.$t.'` LIKE %s','barcode'))) $wpdb->query("ALTER TABLE `$t` ADD COLUMN barcode VARCHAR(120) NULL");
+        if(!$wpdb->get_var("SHOW INDEX FROM `$t` WHERE Key_name='barcode'")) $wpdb->query("ALTER TABLE `$t` ADD UNIQUE KEY barcode (barcode)");
+    }
     private static function migrate_supplier_barcodes(){
         global $wpdb;
         require_once ABSPATH . 'wp-admin/includes/upgrade.php';

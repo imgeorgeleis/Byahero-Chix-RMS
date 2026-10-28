@@ -1,3 +1,10 @@
+## 0.14.0 — POS barcode and inventory stocktaking
+- Product barcode / GTIN saved against RMS menu products, unique identifier.
+- Barcode scanner input in admin POS and frontend POS; opens existing product configuration before cart addition.
+- Ingredient and packaging physical stocktaking, review and explicitly confirm ledger variance adjustments.
+- Supplier barcode can filter stocktaking records.
+- This release does not include camera barcode scanning, printable labels, or multi-user stocktaking sessions.
+
 ## 0.13.9 — Supplier Barcode Receiving
 - Barcode registry linked to supplier catalog items.
 - Keyboard-style USB/Bluetooth scanner support on PO receiving pages.

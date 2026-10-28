@@ -233,3 +233,7 @@ Sound notifications require clicking Enable Sound in Kitchen; browsers block unp
 
 ## Barcode receiving (v0.13.9)
 Open RMS → Supplier Barcodes and link a code to an active supplier catalog item. Define quantity per scan in purchase units for ingredients or in supplier packs for packaging. In an open Purchase Order, focus Scan Supplier Barcode and scan with a keyboard-wedge USB/Bluetooth scanner (usually ending with Enter). The scanner adds to the relevant line up to its remaining quantity; review quantities and click Receive Selected Quantities to commit stock. Duplicate codes are blocked. Barcode mappings must match the PO supplier, item and purchase unit.
+
+
+## v0.14.0 POS Barcode + Stocktaking
+Add a unique Product Barcode in Products / Menu. Scan it in the POS Barcode field to open the configured product (variants/modifiers are still selected by the cashier). In RMS → Stocktaking, search or scan a supplier barcode, enter the physical quantity and reason, and explicitly confirm a ledger-based adjustment. The current system stock is verified again before posting to guard against stale counts. Camera scanning, label printing, and multi-user sessions remain planned.
