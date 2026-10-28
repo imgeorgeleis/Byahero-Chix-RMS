@@ -19,10 +19,29 @@ class BC_RMS_Kitchen_Service {
         if(!$wpdb->insert($e,['order_id'=>$id,'from_status'=>$from,'to_status'=>$next,'user_id'=>get_current_user_id(),'created_at'=>$now],['%d','%s','%s','%d','%s'])){$wpdb->query('ROLLBACK');return new WP_Error('audit_failure','Could not record status audit event.');}
         $wpdb->query('COMMIT');return true;
     }
+    private static function order_epoch($order){
+        // UTC snapshot is unambiguous for all orders created from v0.13.8 onward.
+        if(!empty($order['created_at_utc'])){
+            $utc=DateTimeImmutable::createFromFormat('!Y-m-d H:i:s',$order['created_at_utc'],new DateTimeZone('UTC'));
+            return $utc?$utc->getTimestamp():null;
+        }
+        // Older database DATETIME rows contain no timezone information.
+        // Optional legacy mapping applies only through the configured order ID.
+        $zone=wp_timezone();
+        $legacy_zone=(string)BC_RMS_DB::setting('legacy_order_timezone','');
+        $legacy_max=(int)BC_RMS_DB::setting('legacy_order_max_id','0');
+        if($legacy_max>0 && (int)$order['id']<=$legacy_max && in_array($legacy_zone,timezone_identifiers_list(),true)){
+            $zone=new DateTimeZone($legacy_zone);
+        }
+        $dt=DateTimeImmutable::createFromFormat('!Y-m-d H:i:s',(string)$order['created_at'],$zone);
+        return $dt?$dt->getTimestamp():null;
+    }
     public static function board(){
         global $wpdb;$t=BC_RMS_DB::table('orders');$it=BC_RMS_DB::table('order_items');$mod=BC_RMS_DB::table('order_item_modifiers');
-        $orders=$wpdb->get_results("SELECT id,order_number,order_type,fulfillment_status,created_at FROM $t WHERE status='completed' AND payment_status='paid' AND fulfillment_status IN ('queued','preparing','ready') ORDER BY created_at ASC LIMIT 120",ARRAY_A);
+        $orders=$wpdb->get_results("SELECT id,order_number,order_type,fulfillment_status,created_at,created_at_utc FROM $t WHERE status='completed' AND payment_status='paid' AND fulfillment_status IN ('queued','preparing','ready') ORDER BY created_at ASC LIMIT 120",ARRAY_A);
         foreach($orders as &$o){
+            $o['created_epoch']=self::order_epoch($o);
+            $o['created_display']=$o['created_epoch']!==null?wp_date('M j, Y g:i A',$o['created_epoch'],new DateTimeZone('Asia/Manila')):'Unknown time';
             $o['items']=$wpdb->get_results($wpdb->prepare("SELECT id,quantity,product_name,variant_name,notes FROM $it WHERE order_id=%d ORDER BY id",$o['id']),ARRAY_A);
             foreach($o['items'] as &$item)$item['modifiers']=$wpdb->get_col($wpdb->prepare("SELECT modifier_name FROM $mod WHERE order_item_id=%d ORDER BY id",$item['id']));
             unset($item);

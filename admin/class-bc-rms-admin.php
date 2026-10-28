@@ -388,8 +388,10 @@ class BC_RMS_Admin
         }
         if ($a === 'settings') {
             $t = BC_RMS_DB::table('settings');
-            foreach (['business_name', 'currency', 'currency_symbol', 'timezone', 'target_food_cost', 'target_margin', 'vat_registered'] as $k) {
-                $v = sanitize_text_field($_POST[$k]);
+            foreach (['business_name', 'currency', 'currency_symbol', 'timezone', 'target_food_cost', 'target_margin', 'vat_registered', 'legacy_order_timezone', 'legacy_order_max_id'] as $k) {
+                $v = sanitize_text_field($_POST[$k]??'');
+                if($k==='legacy_order_timezone' && $v!=='' && !in_array($v,timezone_identifiers_list(),true))wp_die('Use a valid IANA timezone, such as America/New_York.');
+                if($k==='legacy_order_max_id')$v=(string)absint($v);
                 $id = $wpdb->get_var($wpdb->prepare("SELECT id FROM $t WHERE setting_key=%s", $k));
                 if ($id)
                     $wpdb->update($t, ['setting_value' => $v, 'updated_at' => $n], ['id' => $id]);
@@ -894,8 +896,9 @@ class BC_RMS_Admin
         $get = fn($k) => $wpdb->get_var($wpdb->prepare("SELECT setting_value FROM $t WHERE setting_key=%s", $k));
         echo '<div class="wrap bc-wrap"><h1>Settings</h1>';
         self::form('settings');
-        foreach ([['Business Name', 'business_name'], ['Currency', 'currency'], ['Currency Symbol', 'currency_symbol'], ['Timezone', 'timezone'], ['Target Food Cost %', 'target_food_cost'], ['Target Margin %', 'target_margin'], ['VAT Registered (yes/no)', 'vat_registered']] as $f)
+        foreach ([['Business Name', 'business_name'], ['Currency', 'currency'], ['Currency Symbol', 'currency_symbol'], ['Timezone', 'timezone'], ['Target Food Cost %', 'target_food_cost'], ['Target Margin %', 'target_margin'], ['VAT Registered (yes/no)', 'vat_registered'], ['Old Orders — Original Timezone (IANA, e.g. America/New_York)', 'legacy_order_timezone'], ['Old Orders — Apply Original Timezone Through Order ID (0 to disable)', 'legacy_order_max_id']] as $f)
             self::f($f[0], $f[1], $get($f[1]));
+        echo '<p class="description">Kitchen timestamps display in Asia/Manila. For orders created before this fix under an older WordPress timezone, enter that ORIGINAL timezone and the last affected order database ID. Do not apply to newer records; UTC timestamps are saved for new orders.</p>';
         self::end();
         echo '</div>';
     }

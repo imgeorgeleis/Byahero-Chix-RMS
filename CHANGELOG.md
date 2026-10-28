@@ -1,3 +1,9 @@
+## 0.13.8 — Kitchen timezone fix
+- New orders record an unambiguous UTC created timestamp in addition to legacy local datetime.
+- Kitchen calculates elapsed time from server-provided Unix epoch and shows Philippine time.
+- Legacy orders support a manual original-timezone + maximum affected order ID correction in RMS Settings; no speculative data rewrite.
+- No changes to POS payment, inventory, promotion, or kitchen transition flows.
+
 ## v0.13.7 — Kitchen Alerts & Ticket Timers
 - Opt-in sound alert for newly queued orders (no alert for initial page load).
 - Elapsed-time badges and 10/20-minute warning thresholds.
