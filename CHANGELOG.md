@@ -1,3 +1,10 @@
+## v0.13.6 — Kitchen Auto-Refresh
+- Kitchen boards refresh automatically every 5 seconds on active, visible pages.
+- Same real-time-style polling board in the front-end RMS and wp-admin Kitchen.
+- Prevent overlapping polling requests; pause while kitchen tab/browser is hidden.
+- Preserve manual refresh fallback and paid-order-only kitchen status transitions.
+- No database schema changes.
+
 ## v0.13.5 — Front-end Kitchen & Transition Audit
 - Front-end Kitchen board in the RMS shortcode; paid orders only.
 - Kitchen event history persisted for each successful transition.

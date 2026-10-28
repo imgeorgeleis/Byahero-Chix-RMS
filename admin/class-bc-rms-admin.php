@@ -753,17 +753,9 @@ class BC_RMS_Admin
     }
     public static function kitchen(){
         if(!current_user_can('bc_view_orders'))wp_die('Not allowed.');
-        global $wpdb;$t=BC_RMS_DB::table('orders');$it=BC_RMS_DB::table('order_items');
-        echo '<div class="wrap bc-wrap"><h1>Kitchen Display</h1><p>Paid orders only. Kitchen progression: Queued → Preparing → Ready → Served.</p><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px">';
-        foreach(['queued'=>'Queued','preparing'=>'Preparing','ready'=>'Ready'] as $status=>$label){
-            echo '<section class="bc-card"><h2>'.esc_html($label).'</h2>';
-            $rows=$wpdb->get_results($wpdb->prepare("SELECT * FROM $t WHERE status='completed' AND payment_status='paid' AND fulfillment_status=%s ORDER BY created_at ASC LIMIT 80",$status));
-            if(!$rows)echo '<p>No orders.</p>';
-            foreach($rows as $o){echo '<article style="border-top:1px solid #ddd;padding:12px 0"><strong>'.esc_html($o->order_number).'</strong><p>'.esc_html(ucwords(str_replace('_',' ',$o->order_type))).' · '.esc_html($o->created_at).'</p><ul>';
-                foreach($wpdb->get_results($wpdb->prepare("SELECT quantity,product_name,variant_name,notes FROM $it WHERE order_id=%d",$o->id)) as $line)echo '<li>'.esc_html($line->quantity.' × '.$line->product_name.($line->variant_name?' — '.$line->variant_name:'').($line->notes?' ('.$line->notes.')':'')).'</li>';
-                echo '</ul><form method="post" action="'.esc_url(admin_url('admin-post.php')).'">';wp_nonce_field('bc_rms_kitchen_transition');echo '<input type="hidden" name="action" value="bc_rms_kitchen_transition"><input type="hidden" name="order_id" value="'.absint($o->id).'"><input type="hidden" name="next" value="'.esc_attr(['queued'=>'preparing','preparing'=>'ready','ready'=>($o->order_type==='takeout'?'picked_up':'served')][$status]).'">';submit_button(esc_html(['queued'=>'Start Preparing','preparing'=>'Mark Ready','ready'=>($o->order_type==='takeout'?'Mark Picked Up':'Mark Served')][$status]),'primary','submit',false);echo '</form></article>';
-            }echo '</section>';
-        }echo '</div></div>';
+        wp_enqueue_script('bc-rms-kitchen',BC_RMS_URL.'assets/js/kitchen.js',[],BC_RMS_VERSION,true);
+        wp_localize_script('bc-rms-kitchen','BCRMS_KITCHEN',['ajaxUrl'=>admin_url('admin-ajax.php'),'nonce'=>wp_create_nonce('bc_rms_kitchen')]);
+        echo '<div class="wrap bc-wrap"><h1>Kitchen Display</h1><p>Paid orders only · Queued → Preparing → Ready → Served / Picked Up</p><button type="button" class="button" id="bc-kitchen-refresh">Refresh Orders</button> <span id="bc-kitchen-auto-status" aria-live="polite">Auto-refresh: every 5 seconds</span><div id="bc-kitchen-message" role="status"></div><div id="bc-kitchen-board" class="bc-kitchen-board"></div></div>';
     }
 
     public static function orders()
