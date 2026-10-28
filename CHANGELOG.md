@@ -1,3 +1,10 @@
+## 0.13.9 — Supplier Barcode Receiving
+- Barcode registry linked to supplier catalog items.
+- Keyboard-style USB/Bluetooth scanner support on PO receiving pages.
+- Supplier pack-to-piece conversion for packaging; purchase-unit quantities for ingredients.
+- Scan does not post stock; existing receiving validation and transaction remain authoritative.
+- No change to POS/Kitchen/paid-order behavior.
+
 ## 0.13.8 — Kitchen timezone fix
 - New orders record an unambiguous UTC created timestamp in addition to legacy local datetime.
 - Kitchen calculates elapsed time from server-provided Unix epoch and shows Philippine time.

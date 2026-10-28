@@ -229,3 +229,7 @@ Create a voucher via RMS > Promotions. Enter the code in the POS and click Apply
 
 ## 0.13.7 Kitchen Alerts
 Sound notifications require clicking Enable Sound in Kitchen; browsers block unprompted audio. New tickets after initial board load play a short chime. Ticket age uses original order creation time; warnings at 10m and 20m.
+
+
+## Barcode receiving (v0.13.9)
+Open RMS → Supplier Barcodes and link a code to an active supplier catalog item. Define quantity per scan in purchase units for ingredients or in supplier packs for packaging. In an open Purchase Order, focus Scan Supplier Barcode and scan with a keyboard-wedge USB/Bluetooth scanner (usually ending with Enter). The scanner adds to the relevant line up to its remaining quantity; review quantities and click Receive Selected Quantities to commit stock. Duplicate codes are blocked. Barcode mappings must match the PO supplier, item and purchase unit.

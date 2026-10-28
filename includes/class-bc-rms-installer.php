@@ -4,7 +4,13 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
 class BC_RMS_Installer {
     public static function activate(){ self::install(); self::roles(); }
     public static function maybe_upgrade(){ if(version_compare((string)get_option('bc_rms_db_version','0.0.0'),BC_RMS_DB_VERSION,'<')) { self::install(); self::roles(); } }
-    private static function install(){ self::tables(); self::migrate_packaging_inventory_columns(); self::migrate_purchase_order_resource_columns(); self::migrate_supplier_catalog_columns(); self::migrate_product_image_column(); self::migrate_order_workflow(); self::migrate_variant_modifiers(); self::migrate_discounts(); self::migrate_statutory_discounts(); self::migrate_kitchen_history(); self::migrate_order_utc(); self::seed(); update_option('bc_rms_db_version',BC_RMS_DB_VERSION); }
+    private static function install(){ self::tables(); self::migrate_packaging_inventory_columns(); self::migrate_purchase_order_resource_columns(); self::migrate_supplier_catalog_columns(); self::migrate_product_image_column(); self::migrate_order_workflow(); self::migrate_variant_modifiers(); self::migrate_discounts(); self::migrate_statutory_discounts(); self::migrate_kitchen_history(); self::migrate_order_utc(); self::migrate_supplier_barcodes(); self::seed(); update_option('bc_rms_db_version',BC_RMS_DB_VERSION); }
+    private static function migrate_supplier_barcodes(){
+        global $wpdb;
+        require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+        $table=BC_RMS_DB::table('supplier_barcodes');$charset=$wpdb->get_charset_collate();
+        dbDelta("CREATE TABLE $table (id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,barcode VARCHAR(120) NOT NULL,supplier_item_id BIGINT UNSIGNED NOT NULL,scan_quantity DECIMAL(14,4) NOT NULL DEFAULT 1,active TINYINT(1) NOT NULL DEFAULT 1,created_at DATETIME NOT NULL,updated_at DATETIME NOT NULL,PRIMARY KEY  (id),UNIQUE KEY barcode (barcode),KEY supplier_item_id (supplier_item_id)) $charset;");
+    }
     private static function migrate_order_utc(){
         global $wpdb;$t=BC_RMS_DB::table('orders');
         if(!$wpdb->get_var("SHOW COLUMNS FROM `$t` LIKE 'created_at_utc'"))
